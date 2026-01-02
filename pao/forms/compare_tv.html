@@ -1,0 +1,785 @@
+{% extends "pao/base.html" %}
+{% load crispy_form_tags %}
+{% load static %}
+
+{% block extra_css %}
+	<title>Compare TV</title>
+	<link href="{% static 'vendor/tabulator/css/tabulator.min.css' %}" rel="stylesheet">
+	<style>
+	body {
+		overscroll-behavior-y: contain;
+	}
+	.tabulator {
+		font-size: 12px;
+	}
+	.tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-title {
+		white-space: normal;
+	}
+	#Scrollspy {
+		z-index: 555;
+	}
+	header {
+		position: static;
+	}
+	.container-lg {
+		overscroll-behavior: : contain;
+	}
+	.graph-controls {
+	    background-color: #f8f9fa;
+	    border: 1px solid #ddd;
+	    border-radius: 8px;
+	    padding: 15px;
+	    margin-bottom: 15px;
+	}
+	.line-break-cell {
+		white-space: normal !important;
+		word-break: break-word !important;
+	}
+	.tabulator-row .tabulator-cell.tabulator-range-selected {
+	    background-color: rgba(13, 110, 253, 0.15) !important;
+	    border: 1px solid rgba(13, 110, 253, 0.3) !important; /* ✨ 투명도 0.3으로 조정 (기존보다 옅게) */
+	}
+	
+	.tabulator-row .tabulator-cell.tabulator-range-selecting {
+	    background-color: rgba(13, 110, 253, 0.08) !important;
+	}
+	
+	#ivl-table:focus {
+	    outline: none;
+	}
+	
+	#ivl-table .tabulator-tableholder:focus {
+	    outline: none;
+	}
+	</style>
+{% endblock extra_css %}
+
+{% block content %}
+	<!-- Scrollspy -->
+	<nav id="scrollspy" class="navbar navbar-light sticky-top bg-light px-3">
+		<ul class="nav nav-pills">
+			<li class="nav-item">
+				<a class="nav-link" href="#deviceStructure">Device Structure</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" href="#dataTable">Data Table</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" href="#TVGraphs">TV Graphs</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link" href="#dynamicGraphs">Dynamic Graphs</a>
+			</li>
+		</ul>
+		<!-- Cart -->
+		<button class="btn btn-primary m-2"
+				type="button"
+				data-bs-toggle="offcanvas"
+				data-bs-target="#offcanvasExample"
+				aria-controls="offcanvasExample">
+			<i class="bi bi-unindent"></i> 분석 리스트 확인
+		</button>
+	</nav>
+	<div 
+		data-bs-spy="scroll" 
+		data-bs-target="#scrollspy" 
+		data-bs-root-margin="-10% 0px -70%" 
+		data-bs-smooth-scroll="true"
+		class="scrollspy-example" 
+		tabindex="0">{% include "pao/_doe_offcanvas.html" with profile=profile %}</div>
+		
+	<h3 id="deviceStructure">Device Structure</h3>
+	<div class="container m-2">
+		<div class="row">
+			<div class="col-md-6">
+				<select id="doeSelect1" class="form-select" aria-label="Select DOE">
+					<option disabled seleted>---</option>
+					{% for doe in selected_does %}
+						<option value="{{ doe.id }}">
+							{{ doe.id }} : {{ doe.exp_date|date:"ymd" }}_{{ doe.color }}_{{ doe.runsheet_lot }}_{{doe.gls_id }}
+						</option>
+					{% endfor %}
+				</select>
+				<div id="doeContent1">
+					<!-- 이부분은 htmx 요청에 의해 대체 될 것입니다 -->
+				</div>
+			</div>
+			<div class="col-md-6">
+				<select id="doeSelect2" class="form-select" aria-label="Select DOE">
+					<option disabled selected>---</option>
+					{% for doe in selected_does %}
+						<option value="{{ doe.id }}">
+							{{ doe.id }} : {{ doe.exp_date|date:"ymd" }}_{{ doe.color }}_{{ doe.runsheet_lot }}_{{doe.gls_id }}
+						</option>
+					{% endfor %}
+				</select>
+				<div id="doeContent2">
+					<!-- 이부분은 htmx 요청에 의해 대체 될 것입니다 -->
+				</div>
+			</div>
+		</div>
+	</div>
+	<hr>
+	<div class="d-flex justify-content-between align-items-center mb-3">
+		<h3 id="dataTable" class="mb-0">Data Table</h3>
+		<div>
+			<div class="btn-group">
+				<button class="btn btn-sm btn-outline-primary dropdown-toggle"
+						type="button"
+						id="columnVisibilityBtn"
+						data-bs-toggle="dropdown"
+						aria-expanded="false">
+					TPID 편집
+				</button>
+				<ul class="dropdown-menu dropdown-menu-end"
+					id="columnVisibilityMenu"
+					style="max-height: 400px; overflow-y: auto; min-width: 250px;">
+					<li class="px-3 py-2">
+						<input type="text"
+								class="form-control form-control-sm"
+								id="columnSearchInput"
+								placeholder="검색..."
+								onclick="event.stopPropagation();">
+					</li>
+					<li><hr class="dropdown-divider"></li>
+					<li class="px-3 py-1">
+						<div class="d-flex gap-2">
+							<button class="btn btn-sm btn-outline-secondary flex-fill"
+								    	id="columnSelectAllBtn"
+								    	type="button">
+								전체선택								
+							</button>
+							<button class="btn btn-sm btn-outline-secondary flex-fill"
+								    	id="columnDeselectAllBtn"
+								    	type="button">
+								전체해제								
+							</button>
+						</div>
+					</li>
+					<li><hr class="dropdown-divider"></li>
+					<!-- JS 동적 생성 -->
+					<div id="columnVisibilityList"></div>
+				</ul>
+			</div>
+			<!-- 분석조건 편집 드롭다운 -->
+			<div class="btn-group ms-2">
+				<button class="btn btn-sm btn-outline-primary dropdown-toggle"
+						type="button"
+						id="rowVisibilityBtn"
+						data-bs-toggle="dropdown"
+						aria-expanded="false">
+					TPID 편집
+				</button>
+				<ul class="dropdown-menu dropdown-menu-end"
+					id="rowVisibilityMenu"
+					style="max-height: 400px; overflow-y: auto; min-width: 250px;">
+					<li class="px-3 py-2">
+						<input type="text"
+								class="form-control form-control-sm"
+								id="rowSearchInput"
+								placeholder="검색..."
+								onclick="event.stopPropagation();">
+					</li>
+					<li><hr class="dropdown-divider"></li>
+					<li class="px-3 py-1">
+						<div class="d-flex gap-2">
+							<button class="btn btn-sm btn-outline-secondary flex-fill"
+								    	id="rowSelectAllBtn"
+								    	type="button">
+								전체선택								
+							</button>
+							<button class="btn btn-sm btn-outline-secondary flex-fill"
+								    	id="rowDeselectAllBtn"
+								    	type="button">
+								전체해제								
+							</button>
+						</div>
+					</li>
+					<li><hr class="dropdown-divider"></li>
+					<!-- JS 동적 생성 -->
+					<div id="rowVisibilityList"></div>
+				</ul>
+			</div>
+		</div>
+	</div>
+	<div class="d-flex align-items-center mb-3 flex-wrap gap-2">
+	    <label for="tvColorFilter">Color Filter:</label>
+	    <div>
+			<select id="tvColorFilter" class="form-select me-1" style="width:auto;">
+			    <option value="">-- Select --</option>
+			    {% for filter in color_filters %}
+				    <option value="{{ filter.id }}" 
+				        {% if tv_additions and tv_additions.color_filter and tv_additions.color_filter.label == filter.label %}selected{% endif %}>
+				        {{ filter.label }}({{ filter.created_user.full_name }})
+				    </option>
+			    {% endfor %}
+			</select>
+	    </div>
+	    <button class="btn btn-outline-secondary btn-sm" onclick="openEditor('color')">편집</button>
+	
+	    <label for="tvLineFactor">Line Factor:</label>
+	    <div>
+		    <select id="tvLineFactor" class="form-select me-1" style="width:auto;">
+		        <option value="">-- Select --</option>
+		        {% for factor in line_factors %}
+		            <option value="{{ factor.id }}"
+		                {% if tv_additions and tv_additions.line_factor and tv_additions.line_factor.label == factor.label %}selected{% endif %}>
+		                {{ factor.label }}({{ factor.created_user.full_name }})
+		            </option>
+	            {% endfor %}
+		    </select>
+	    </div>
+	    <button class="btn btn-outline-secondary btn-sm" onclick="openEditor('line')">편집</button>
+	
+	    <label for="ltAgingTime">Aging Time:</label>
+	    <div class="col-1">
+		    <input id="ltAgingTime" type="number" class="form-control me-2" value="{% if tv_additions %}{{ tv_additions.aging_time }}{% else %}30{% endif %}" style="width:100px;">
+	    </div>
+	    <div class="ms-auto">
+			<button id="exportExcelBtn" class="btn btn-outline-success">
+				<i class="bi bi-download"></i>Export
+			</button>
+		    <button id="selectAllDataBtn" class="btn btn-outline-primary" onclick="toggleSelectAllColumns()">
+			    전체선택
+			</button>
+		    <button id="generateChartsBtn" class="btn btn-success">
+		        그래프생성
+		    </button>
+	    </div>
+	</div>
+	
+	<div id="ivl-table"></div>
+	<hr>
+	
+	<h3 id="TVGraphs" class="m-3">TV Graphs</h3>
+	<div class="tab-content container-lg my-2">
+		<!-- TV차트 10개 -->
+		<div class="tab-pane fade show active" id="tv-charts">
+			<div class="row">
+				<div class="col-md-6 mb-4">
+					<div class="card">
+						<div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+							<h6 class="mb-0 me-auto">1. J-V 차트</h6>
+						</div>
+						<div class="card-body">
+							<div id="tv-jv-chart"></div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6 mb-4">
+					<div class="card">
+						<div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+							<h6 class="mb-0 me-auto">2. cd/A-J 차트</h6>
+						</div>
+						<div class="card-body">
+							<div id="tv-cj-chart"></div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6 mb-4">
+					<div class="card">
+						<div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+							<h6 class="mb-0 me-auto">3. Spectrum 차트</h6>
+						</div>
+						<div class="card-body">
+							<div id="tv-spectrum-chart"></div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6 mb-4">
+					<div class="card">
+						<div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+							<h6 class="mb-0 me-auto">4. Wx,y-J 차트</h6>
+				            <div class="btn-group btn-group-sm" role="group">
+				                <input type="checkbox" class="btn-check" id="wxy-white" checked autocomplete="off">
+				                <label class="btn btn-outline-secondary" for="wxy-white">W</label>
+				                
+				                <input type="checkbox" class="btn-check" id="wxy-red" autocomplete="off">
+				                <label class="btn btn-outline-danger" for="wxy-red">R</label>
+				                
+				                <input type="checkbox" class="btn-check" id="wxy-green" autocomplete="off">
+				                <label class="btn btn-outline-success" for="wxy-green">G</label>
+				                
+				                <input type="checkbox" class="btn-check" id="wxy-blue" autocomplete="off">
+				                <label class="btn btn-outline-primary" for="wxy-blue">B</label>
+				            </div>
+						</div>
+						<div class="card-body">
+							<div id="tv-wxy-chart"></div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6 mb-4">
+				    <div class="card">
+				        <div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+				            <h6 class="mb-0 me-auto">5. Angular Spectrum 차트</h6>
+				            <div class="btn-group btn-group-sm" role="group">
+				                <input type="checkbox" class="btn-check" id="angular-all" autocomplete="off">
+				                <label class="btn btn-outline-secondary" for="angular-all">All</label>
+				                
+				                <input type="checkbox" class="btn-check" id="angular-0" value="0" checked autocomplete="off">
+				                <label class="btn btn-outline-secondary" for="angular-0">0°</label>
+				                
+				                <input type="checkbox" class="btn-check" id="angular-15" value="15" autocomplete="off">
+				                <label class="btn btn-outline-secondary" for="angular-15">15°</label>
+				                
+				                <input type="checkbox" class="btn-check" id="angular-30" value="30" autocomplete="off">
+				                <label class="btn btn-outline-secondary" for="angular-30">30°</label>
+				                
+				                <input type="checkbox" class="btn-check" id="angular-45" value="45" autocomplete="off">
+				                <label class="btn btn-outline-secondary" for="angular-45">45°</label>
+				                
+				                <input type="checkbox" class="btn-check" id="angular-60" value="60" autocomplete="off">
+				                <label class="btn btn-outline-secondary" for="angular-60">60°</label>
+				            </div>
+				        </div>
+				        <div class="card-body">
+				            <div id="tv-angular-spectrum-chart"></div>
+				        </div>
+				    </div>
+				</div>
+				<div class="col-md-6 mb-4">
+					<div class="card">
+						<div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+							<h6 class="mb-0 me-auto">6. deltau'v'-Angle 차트</h6>
+						</div>
+						<div class="card-body">
+							<div id="tv-delta-uv-angle-chart"></div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6 mb-4">
+					<div class="card">
+						<div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+							<h6 class="mb-0 me-auto">7. LT 차트</h6>
+				            <div class="btn-group btn-group-sm" role="group" style="margin-left: auto; margin-right: 8px;">
+				                <input type="checkbox" class="btn-check" id="lt-white" checked autocomplete="off">
+				                <label class="btn btn-outline-secondary" for="lt-white">W</label>
+				                
+				                <input type="checkbox" class="btn-check" id="lt-red" autocomplete="off">
+				                <label class="btn btn-outline-danger" for="lt-red">R</label>
+				                
+				                <input type="checkbox" class="btn-check" id="lt-green" autocomplete="off">
+				                <label class="btn btn-outline-success" for="lt-green">G</label>
+				                
+				                <input type="checkbox" class="btn-check" id="lt-blue" autocomplete="off">
+				                <label class="btn btn-outline-primary" for="lt-blue">B</label>
+				            </div>
+						</div>
+						<div class="card-body">
+							<div id="tv-lt-chart"></div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6 mb-4">
+				    <div class="card">
+				        <div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+				            <h6 class="mb-0 me-auto">8. deltaV 차트</h6>
+				            <div class="d-flex align-items-center gap-2">
+				                <label for="tvDeltaVBaseline" class="me-2 small">기준선</label>
+				                <div class="col-auto">
+									<select id="tvDeltaVBaseline" class="form-select form-select-sm">
+									    <option value="">-- Select --</option>
+									    {% for baseline in deltav_baselines %}
+									    <option value="{{ baseline.id }}">
+									        {{ baseline.label }}({{ baseline.created_user.full_name }})
+									    </option>
+									    {% endfor %}
+									</select>
+				                </div>
+				                <button class="btn btn-outline-secondary btn-sm" onclick="openBaselineEditor()">기준선 편집</button>
+				            </div>
+				        </div>
+				        <div class="card-body">
+				            <div id="tv-delta-v-chart"></div>
+				        </div>
+				    </div>
+				</div>
+				<div class="col-md-6 mb-4">
+					<div class="card">
+						<div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+							<h6 class="mb-0 me-auto">9. 색좌표 차트</h6>
+				            <div class="btn-group btn-group-sm ms-auto me-2" role="group">
+				                <input type="checkbox" class="btn-check" id="cc-white" checked autocomplete="off">
+				                <label class="btn btn-outline-secondary" for="cc-white">W</label>
+				                
+				                <input type="checkbox" class="btn-check" id="cc-red" autocomplete="off">
+				                <label class="btn btn-outline-danger" for="cc-red">R</label>
+				                
+				                <input type="checkbox" class="btn-check" id="cc-green" autocomplete="off">
+				                <label class="btn btn-outline-success" for="cc-green">G</label>
+				                
+				                <input type="checkbox" class="btn-check" id="cc-blue" autocomplete="off">
+				                <label class="btn btn-outline-primary" for="cc-blue">B</label>
+				            </div>
+						</div>
+						<div class="card-body">
+							<div id="tv-color-coordinate-chart"></div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6 mb-4">
+					<div class="card">
+						<div class="card-header d-flex flex-row flex-wrap justify-content-between align-items-center">
+							<h6 class="mb-0 me-auto">10. deltauv-deltav' angle 차트</h6>
+						</div>
+						<div class="card-body">
+							<div id="tv-jv-chart"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	
+		<!-- 기존 dynamic graph -->
+		<h3 id="dynamicGraphs" class="m-3">Dynamic Graphs</h3>
+		<div>
+		    <!-- 그래프 컨트롤 -->
+		    <div class="graph-controls">
+		        <div class="row">
+		            <div class="col-md-3">
+		                <label for="xAxisSelect" class="form-label">X축</label>
+		                <select id="xAxisSelect" class="form-select form-select-sm">
+		                    <option value="">-- X축 선택 --</option>
+		                </select>
+		            </div>
+		            <div class="col-md-3">
+		                <label for="yAxisSelect" class="form-label">Y축</label>
+		                <select id="yAxisSelect" class="form-select form-select-sm">
+		                    <option value="">-- Y축 선택 --</option>
+		                </select>
+		            </div>
+		            <div class="col-md-3">
+		                <label for="y2AxisSelect" class="form-label">Y2축 <small class="text-muted">(선택)</small></label>
+		                <select id="y2AxisSelect" class="form-select form-select-sm">
+		                    <option value="">-- Y2축 선택 --</option>
+		                </select>
+		            </div>
+		            <div class="col-md-3">
+		                <label for="chartTypeSelect" class="form-label">차트 타입</label>
+		                <select id="chartTypeSelect" class="form-select form-select-sm">
+		                    <option value="scatter">산점도</option>
+		                    <option value="line">선 그래프</option>
+		                    <option value="bar">막대 그래프</option>
+		                </select>
+		            </div>
+		        </div>
+		        <div class="row mt-2">
+		            <div class="col-md-6">
+		                <div class="small text-muted">
+		                    <strong>적용된 필터:</strong>
+		                    Color Filter: <span id="currentGraphColorFilter">선택 안됨</span>,
+		                    Line Factor: <span id="currentGraphLineFactor">선택 안됨</span>
+		                </div>
+		            </div>
+		            <div class="col-md-3">
+		                <button id="updateGraphBtn" class="btn btn-primary btn-sm w-100" disabled>
+		                    그래프 업데이트
+		                </button>
+		            </div>
+		            <div class="col-md-3">
+		                <button id="gamutAnalysisBtn" class="btn btn-info btn-sm w-100" disabled>
+		                    색역분석 (새창)
+		                </button>
+		            </div>
+		        </div>
+		        
+	            <!-- 각도 필터 드롭다운 추가 -->
+				<div class="row mt-1" id="angleFilterRow" style="display: none;">
+				    <div class="col-md-12">
+				        <div class="row">
+				            <div class="col-md-3">
+				                <label class="form-label">스펙트럼 해상도</label>
+				                <div class="form-check form-switch">
+				                    <input class="form-check-input" type="checkbox" id="resolutionToggle">
+				                    <label class="form-check-label" for="resolutionToggle">
+				                        <span id="resolutionLabel">Standard (4nm)</span>
+				                    </label>
+				                </div>
+				                <div class="small text-muted mt-1">
+				                    High Resolution은 렌더링에 시간이 걸립니다
+				                </div>
+				            </div>
+				            <div class="col-md-9" id="angleFilterSection">
+				                <label class="form-label">각도 필터</label>
+				                <div class="d-flex gap-3 align-items-center">
+				                    <div class="form-check">
+				                        <input class="form-check-input" type="checkbox" id="angleAll" value="all" checked>
+				                        <label class="form-check-label" for="angleAll">All</label>
+				                    </div>
+				                    <div class="form-check">
+				                        <input class="form-check-input" type="checkbox" id="angle0" value="0" checked disabled>
+				                        <label class="form-check-label" for="angle0">0°</label>
+				                    </div>
+				                    <div class="form-check">
+				                        <input class="form-check-input" type="checkbox" id="angle15" value="15" checked disabled>
+				                        <label class="form-check-label" for="angle15">15°</label>
+				                    </div>
+				                    <div class="form-check">
+				                        <input class="form-check-input" type="checkbox" id="angle30" value="30" checked disabled>
+				                        <label class="form-check-label" for="angle30">30°</label>
+				                    </div>
+				                    <div class="form-check">
+				                        <input class="form-check-input" type="checkbox" id="angle45" value="45" checked disabled>
+				                        <label class="form-check-label" for="angle45">45°</label>
+				                    </div>
+				                    <div class="form-check">
+				                        <input class="form-check-input" type="checkbox" id="angle60" value="60" checked disabled>
+				                        <label class="form-check-label" for="angle60">60°</label>
+				                    </div>
+				                </div>
+				                <div class="small text-muted mt-1">
+				                    All 선택 시 모든 각도 표시, 해제 후 개별 각도 선택 가능
+				                </div>
+				            </div>
+				        </div>
+				    </div>
+			    </div>
+			    <!-- 그래프 표시 영역 -->
+			    <div id="unifiedGraph" style="width: 100%; height: 500px;">
+			        <div id="initialGraphMessage" class="d-flex align-items-center justify-content-center h-100 text-muted">
+			            <div class="text-center">
+			                <h4>그래프 뷰어</h4>
+			                <p>X축과 Y축을 선택한 후 <strong>그래프 업데이트</strong>를 클릭하세요.</p>
+			                <p class="small">Color Filter와 Line Factor를 선택하면 색역 분석도 가능합니다.</p>
+			            </div>
+			        </div>
+			    </div>
+			</div>
+		</div>
+	</div>
+	
+	<div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;"></div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script src="{% static 'vendor/plotly/plotly-3.2.0.min.js' %}"></script>
+<script src="{% static 'vendor/flatted/flatted-3.3.3.min.js' %}"></script>
+<script src="{% static 'vendor/xlsx/0.20.3/xlsx.full.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'vendor/tabulator/js/tabulator.min.js' %}"></script>
+<script type="module" src="{% static 'pao/components/chart-editor.es.js' %}"></script>
+<script src="{% static 'pao/compare_po/chart-editor-bridge.js' %}"></script>
+<script src="{% static 'pao/compare_po/chart-main.js' %}"></script>
+<script src="{% static 'pao/compare_tv/tv_profile_offcanvas.js' %}"></script>
+<script>
+	function getCookie(name) {
+		let cookieValue = null;
+		if (document.cookie && document.cookie !== '') {
+			const cookies = document.cookie.split(';');
+			for (let i = 0; i < cookie.length; i++) {
+				const cookie = cookies[i].trim();
+				if (cookie.substring(0, name.length + 1) === (name + '=')) {
+					cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+					break;
+				}
+			}
+		}
+		return cookieValue;
+	}
+	const csrfToken = getCookie('csrftoken');
+</script>
+<script>
+	function getStructure(doeId, DOMId){
+		if (doeId !== "---"){
+			var target = document.getElementById(DOMId);
+			htmx.ajax('GET', "{% url 'pao:device_structure' 0 %}".replace('0', doeId), { 
+				target: target, 
+				swap: 'innerHTML' 
+			}).then(() => {
+				// HTMX 로드 완료 후 비교 함수 실행
+				compareStructures();
+			});
+		}
+	};
+	
+	document.getElementById('doeSelect1').addEventListener('click', function() {
+		getStructure(this.value, 'doeContent1')
+	});
+	
+	document.getElementById('doeSelect2').addEventListener('click', function() {
+		getStructure(this.value, 'doeContent2')
+	});
+	
+	function deleteTable(event) {
+		event.target.closest(".table-responsive").remove();
+		// 테이블 삭제 후 다시 비교
+		compareStructures();
+	}
+	
+	function compareStructures() {
+		// 모든 structure 테이블 가져오기
+		const tables = document.querySelectorAll('table[data-structure-id]');
+		
+		if (tables.length === 0) return;
+		
+		// 첫 번째 테이블을 기준으로 설정
+		const baseTable = tables[0];
+		
+		// 먼저 모든 빨간색 스타일 제거
+		tables.forEach(table => {
+			table.querySelectorAll('.text-danger').forEach(el => {
+				el.classList.remove('text-danger');
+			});
+		});
+		
+		// 기준 테이블의 Layer 데이터 수집 (전후 Layer 정보 포함)
+		const baseRows = baseTable.querySelectorAll('tbody tr[data-layer]');
+		const baseLayerList = [];
+		
+		baseRows.forEach((row, index) => {
+			const layerName = row.getAttribute('data-layer');
+			const prevLayer = index > 0 ? baseRows[index - 1].getAttribute('data-layer') : null;
+			const nextLayer = index < baseRows.length - 1 ? baseRows[index + 1].getAttribute('data-layer') : null;
+			
+			const rowData = new Map();
+			row.querySelectorAll('td[data-column]').forEach(cell => {
+				const columnName = cell.getAttribute('data-column');
+				const values = [];
+				
+				cell.querySelectorAll('[data-value]').forEach(elem => {
+					const value = elem.getAttribute('data-value');
+					if (value) values.push(value.trim());
+				});
+				
+				rowData.set(columnName, values);
+			});
+			
+			baseLayerList.push({
+				name: layerName,
+				prevLayer: prevLayer,
+				nextLayer: nextLayer,
+				data: rowData,
+				matched: false  // 매칭 여부 추적
+			});
+		});
+		
+		// 나머지 테이블들과 비교
+		for (let i = 1; i < tables.length; i++) {
+			const compareTable = tables[i];
+			const compareRows = compareTable.querySelectorAll('tbody tr[data-layer]');
+			
+			// 비교 테이블의 각 행에 대해
+			compareRows.forEach((row, rowIndex) => {
+				const layerName = row.getAttribute('data-layer');
+				const prevLayer = rowIndex > 0 ? compareRows[rowIndex - 1].getAttribute('data-layer') : null;
+				const nextLayer = rowIndex < compareRows.length - 1 ? compareRows[rowIndex + 1].getAttribute('data-layer') : null;
+				
+				// 같은 이름의 Layer를 기준 테이블에서 찾기
+				const candidateLayers = baseLayerList.filter(layer => 
+					layer.name === layerName && !layer.matched
+				);
+				
+				let matchedBaseLayer = null;
+				
+				if (candidateLayers.length === 0) {
+					// 해당 Layer가 기준에 없음 → 새로운 Layer
+					row.querySelectorAll('[data-value]').forEach(elem => {
+						elem.classList.add('text-danger', 'fw-bold');
+					});
+					return;
+				} else if (candidateLayers.length === 1) {
+					// 같은 이름이 하나만 있으면 그것과 매칭
+					matchedBaseLayer = candidateLayers[0];
+					matchedBaseLayer.matched = true;
+				} else {
+					// 같은 이름이 여러 개 → 전후 Layer로 최적 매칭 찾기
+					for (const candidate of candidateLayers) {
+						// 이전 Layer 또는 다음 Layer 중 하나라도 같으면 매칭
+						if ((prevLayer && candidate.prevLayer === prevLayer) || 
+						    (nextLayer && candidate.nextLayer === nextLayer)) {
+							matchedBaseLayer = candidate;
+							matchedBaseLayer.matched = true;
+							break;
+						}
+					}
+					
+					// 전후 Layer로 매칭 안되면 → 새로운 Layer로 간주
+					if (!matchedBaseLayer) {
+						row.querySelectorAll('[data-value]').forEach(elem => {
+							elem.classList.add('text-danger', 'fw-bold');
+						});
+						return;
+					}
+				}
+				
+				// 매칭된 Layer와 각 컬럼 비교
+				const baseRowData = matchedBaseLayer.data;
+				
+				row.querySelectorAll('td[data-column]').forEach(cell => {
+					const columnName = cell.getAttribute('data-column');
+					
+					// Layer 컬럼은 비교하지 않음
+					if (cell.getAttribute('data-column') === 'Layer') return;
+					
+					const baseValues = baseRowData.get(columnName) || [];
+					const compareValues = [];
+					
+					cell.querySelectorAll('[data-value]').forEach(elem => {
+						const value = elem.getAttribute('data-value');
+						if (value) compareValues.push(value.trim());
+					});
+					
+					// 값 개수가 다르면 모두 빨간색
+					if (baseValues.length !== compareValues.length) {
+						cell.querySelectorAll('[data-value]').forEach(elem => {
+							elem.classList.add('text-danger', 'fw-bold');
+						});
+						return;
+					}
+					
+					// 각 값 비교
+					cell.querySelectorAll('[data-value]').forEach((elem, index) => {
+						const compareValue = elem.getAttribute('data-value').trim();
+						const baseValue = baseValues[index];
+						
+						if (compareValue !== baseValue) {
+							elem.classList.add('text-danger', 'fw-bold');
+						}
+					});
+				});
+			});
+			
+			// 다음 테이블 비교를 위해 matched 플래그 리셋
+			baseLayerList.forEach(layer => layer.matched = false);
+		}
+	}
+</script>
+
+
+
+<script>
+	const selectedDoes = {{ selected_does_json|safe }};
+	const initialLayouts = {{ layouts_json|default:"null"|safe }};
+	const profileTitle = "{{ profile.title|escapejs }}";  // escapejs: 특수문자 처리
+	const profileId = {{ profile.id }};
+	
+	const initialHiddenColumns = {{ hidden_columns_json|safe }};
+    const initialHiddenRows = {{ hidden_rows_json|safe }};
+    const initialColumnOrder = {{ column_order_json|safe }};
+    const initialReferenceColumns = {{ reference_columns_json|safe }};
+	
+	const URLS = {
+		colorfilterEditor: "{% url 'pao:tv_colorfilter_edit' %}",
+		linefactorEditor: "{% url 'pao:tv_linefactor_edit' %}",
+		ivlColorTable: "{% url 'pao:tv_get_ivl_color_table' %}",
+		ivlTable: "{% url 'pao:tv_get_ivl_table' %}",
+		angleTable: "{% url 'pao:tv_get_angle_table' %}",
+		ltTable: "{% url 'pao:tv_get_lt_table' %}",
+		graphOption: "{% url 'pao:tv_get_graph_options' %}",
+		gamutAnalysis: "{% url 'pao:tv_gamut_analysis' %}",
+		updateDynamic: "{% url 'pao:tv_get_dynamic_graph_data' %}",
+		getChart: "{% url 'pao:tv_get_chart_data' %}",
+		openBaseline: "{% url 'pao:tv_deltav_baseline_edit' %}",
+		refreshBaseline: "{% url 'pao:tv_get_deltav_baselines' %}",
+		applyDelta: "{% url 'pao:tv_get_deltav_baseline_data' %}",
+		saveAdditions: "{% url 'pao:tv_save_additions' profile.id %}",
+		colorFilterList: "{% url 'pao:tv_colorfilter_list' %}",
+		lineFactorList: "{% url 'pao:tv_linefactor_list' %}",
+	}
+	
+	
+	
+</script>
+
+{% endblock extra_js %}

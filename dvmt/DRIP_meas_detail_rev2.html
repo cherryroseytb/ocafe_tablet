@@ -1,0 +1,341 @@
+{% extends 'dvmt/base.html' %}
+{% load custom_filters %}
+
+{% block page_content %}
+<div class="container mt-4">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Measurement Detail for {{ mat_name }}</h2>
+        <a href="{% url 'dvmt:meas_list' %}?{{ request.GET.urlencode }}" class="btn btn-primary">Return to list</a>
+    </div>
+    <hr/>
+
+    <div class="container mt-2">
+        <ul class="nav nav-tabs" id="mainTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link active" id="measurement-tab" data-bs-toggle="tab" href="#measurement" role="tab" aria-controls="measurement" aria-selected="true">Measurement Data</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" id="pioneer-tab" data-bs-toggle="tab" href="#pioneer" role="tab" aria-controls="pioneer" aria-selected="false">Pioneer Data</a>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="mainTabContent">
+            <div class="tab-pane fade show active" id="measurement" role="tabpanel" aria-labelledby="measurement-tab">
+                <!-- pd_equip 탭 목록 -->
+                <ul class="nav nav-tabs mt-3" id="pdEquipTabs" role="tablist">
+                    {% for equip in pd_equip_list %}
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link {% if equip == selected_pd_equip %}active{% elif not selected_pd_equip and forloop.first %}active{% endif %}"
+                               id="pd-tab-{{ equip }}"
+                               data-bs-toggle="tab"
+                               href="#pd-{{ equip }}"
+                               role="tab"
+                               aria-controls="pd-{{ equip }}"
+                               aria-selected="{% if equip == selected_pd_equip or not selected_pd_equip and forloop.first %}true{% else %}false{% endif %}">
+                                {{ equip }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+
+                <!-- pd_equip 탭 내용 -->
+                <div class="tab-content mt-3" id="pdEquipTabContent">
+                    {% for equip in pd_equip_list %}
+                        <div class="tab-pane fade {% if equip == selected_pd_equip or not selected_pd_equip and forloop.first %}show active{% endif %}"
+                             id="pd-{{ equip }}"
+                             role="tabpanel"
+                             aria-labelledby="pd-tab-{{ equip }}">
+                            
+                            <table class="table table-bordered table-sm">
+                                <tbody>
+                                    <tr>
+                                        <td class="category" rowspan="4">재료</td>
+                                        <td><b>HOMO (AC3)</b></td>
+                                        <td><b>LUMO (UV-vis)</b></td>
+                                        <td><b>Bandgap (UV-vis)</b></td>
+                                        <td><b>Singlet level (UV-vis)</b></td>
+                                        <td><b>Triplet level (LTPL)</b></td>
+                                    </tr>
+                                    <tr>
+                                        {% with data=fitting_data|get_item:equip %}
+                                            <td>
+                                                {% for val in data.ac3_intersection_ev %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=ac3">
+                                                        {{ val|floatformat:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.LUMO_uvvis %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=uvvis">
+                                                        {{ val|floatformat:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.uvvis_bandgap %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=uvvis">
+                                                        {{ val|floatformat:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.uvvis_bandgap %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=uvvis">
+                                                        {{ val|floatformat:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.ltpl_triplet_energy %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=ltpl">
+                                                        {{ val|floatformat:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                        {% endwith %}
+                                    </tr>
+            
+                                    <tr>
+                                        <td><b>Quantum Yield (PLQY)</b></td>
+                                        <td><b>Peak spectrum (PL)</b></td>
+                                        <td><b>Delayed Time (Prompt, ns)</b></td>
+                                        <td><b>Delayed Time (Delayed, μs)</b></td>
+                                        <td>TBD</td>
+                                    </tr>
+                                    <tr>
+                                        {% with data=fitting_data|get_item:equip %}
+                                            <td>
+                                                {% for val in data.plqy_value %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=plqy">
+                                                        {{ val|floatformat:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.pl_peak_wavelength %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=pl">
+                                                        {{ val|floatformat:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.trpl_prompt_tau %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=trpl">
+                                                        {{ val|floatformat:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.trpl_delayed_tau %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=trpl">
+                                                        {{ val|floatformat:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                -
+                                            </td>
+                                        {% endwith %}
+                                    </tr>
+                                    <tr>
+                                        <td class="category" rowspan="3">광학</td>
+                                        <td><b>n, k value (Ellipsometer)</b></td>
+                                        <td><b>Orientation (EDO)</b></td>
+                                        <td><b>Other Optical Property</b></td>
+                                        <td><b>TBD</b></td>
+                                        <td>TBD</td>
+                                    </tr>
+                                    <tr>
+                                        {% with data=fitting_data|get_item:equip %}
+                                            <td>
+                                                {% for val in data.ellipso_is %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=ellipsomter">
+                                                        {{ val }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                -
+                                            </td>
+                                            <td>
+                                                -
+                                            </td>
+                                            <td>
+                                                -
+                                            </td>
+                                            <td>
+                                                -
+                                            </td>
+                                        {% endwith %}
+                                    </tr>
+
+                                    <tr>
+                                        <td class="category" rowspan="3">전기</td>
+                                        <td><b>Zero Field Mobility(h/e)(IV)</b></td>
+                                        <td><b>PF Factor(h/e)(IV)</b></td>
+                                        <td><b>Permittivity(h/e)(CV)</b></td>
+                                        <td><b>Zero Cap(h/e)(CV)</b></td>
+                                        <td><b>Max cap(h/e)(CV)</b></td>
+                                    </tr>
+                                    <tr>
+                                        {% with data=fitting_data|get_item:equip %}
+                                            <td>
+                                                {% for val in data.iv_zero_field_mobility %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=iv">
+                                                        {{ val|scientific_pair:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.iv_pf_factor %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=iv">
+                                                        {{ val|scientific_pair:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.cv_permittivity %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=cv">
+                                                        {{ val|scientific_pair:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.cv_zerocap %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=cv">
+                                                        {{ val|scientific_pair:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                            <td>
+                                                {% for val in data.cv_maxcap %}
+                                                    {% if val != "-" %}
+                                                    <a class="hover-link" href="{% url 'dvmt:meas_compare' %}?mat_name={{ mat_name|urlencode }}&pd_equip={{ equip|urlencode }}&ms_equip=cv">
+                                                        {{ val|scientific_pair:2 }}
+                                                    </a>
+                                                    {% else %}
+                                                    -
+                                                    {% endif %}
+                                                    {% if not forloop.last %}, {% endif %}
+                                                {% empty %}-{% endfor %}
+                                            </td>
+                                        {% endwith %}
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endfor %}
+                </div>        
+            </div>
+        
+            <!-- Tab 2 Content -->
+            <div class="tab-pane fade" id="pioneer" role="tabpanel" aria-labelledby="pioneer-tab">
+                <table class="table table-bordered mt-4">
+                    <hr>
+                    <p>Pioneer Data는 협의 후, 업데이트 예정입니다.</p>
+                    <hr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll("#pdEquipTabs .nav-link").forEach(tab => {
+        tab.addEventListener("click", function(event) {
+            event.preventDefault();
+
+            const pdEquip = this.getAttribute("href").substring(4);
+            const baseUrl = window.location.pathname;
+            const params = new URLSearchParams(window.location.search);
+            params.set("pd_equip", pdEquip);
+            window.history.pushState({}, "", baseUrl + "?" + params.toString());
+
+            // 탭 메뉴 active 변경
+            document.querySelectorAll("#pdEquipTabs .nav-link").forEach(t => t.classList.remove("active"));
+            this.classList.add("active");
+
+            // 탭 내용 active 변경
+            document.querySelectorAll("#pdEquipTabContent .tab-pane").forEach(c => c.classList.remove("show", "active"));
+            const activeTabPane = document.getElementById("pd-" + pdEquip);
+            if (activeTabPane) {
+                activeTabPane.classList.add("show", "active");
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

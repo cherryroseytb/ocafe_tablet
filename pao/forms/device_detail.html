@@ -1,0 +1,210 @@
+{% extends 'pao/base.html' %}
+{% load static compress %}
+{% block content %}
+
+	<nav aria-label="breadcrumb" class="my-3">
+		// 생략
+	</nav>
+
+	{% if source_info.from == 'compare_tv' %}
+	<div class="mb-3">
+	    <a href="{% url 'pao:compare_tv' source_info.profile_id %}?ids={{ source_info.ids }}" 
+	       class="btn btn-outline-secondary">
+	        <i class="bi bi-arrow-left"></i> Compare TV로 돌아가기
+	    </a>
+	</div>
+	{% endif %}
+	
+	<div class="m-2">
+		<div class="d-flex align-self-center">
+			<h4 class="m-1 me-auto">소자정보</h4>
+			{% if doe.created_user == request.user or request.user.is_superuser %}
+				<div class="d-flex gap-2">
+					<a ifd="editBtn" class="btn btn-primary" href="{% url 'pao:edit_device' doe.id %}">수정</a>
+					<button class="btn btn-outline-danger" onclick="deleteDOE({{ doe.id|safe }}">삭제<</button>
+				</div>
+			{% endif %}
+		</div>
+		<ul>
+			// 생략
+		</ul>
+	</div>
+
+
+
+<script>
+<div class="row mt-3">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Angular Spectrum</h6>
+            </div>
+            <div class="card-body">
+                <div id="angular-spectrum-chart"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Δu'v' vs Angle</h6>
+            </div>
+            <div class="card-body">
+                <div id="delta-uv-angle-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div>
+	<table id="" class="">
+		<thead>
+			<tr>
+				<th>/<th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for data in ivl_data %}
+				<tr>
+					<td>/<td>
+					<td>
+						{% if data.created_user == request.user or request.user.is_superuser %}
+							<form action="{% url 'pao:ivl_delete' data.doe_id data.ivl_id %}"
+								method="post"
+								onsubmit="return confirmDelete();">
+								{% csrf_token %}
+								<button type="submit" class="btn-close"></button>
+							</form>
+						{% endif %}
+					</td>
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+</div>
+
+
+
+
+	const layouts = {{ layouts |default:'{}'|safe }}
+	const ivchartLayout = layouts["iv-chart"] || {};
+	const angularSpectrumLayout = layouts["angular-spectrum-chart"] || {};
+	const deltaUvAngleLayout = layouts["delta-uv-angle-chart"] || {};
+
+
+
+const chartConfigs = [
+    {
+        id: "iv-chart",
+        title: "IV Chart",
+        data: {
+            data: [],
+            layout: ivchartLayout,
+        }
+    },
+    {
+        id: "angular-spectrum-chart",
+        title: "Angular Spectrum",
+        data: {
+            data: [],
+            layout: angularSpectrumLayout
+        }
+    },
+    {
+        id: "delta-uv-angle-chart",
+        title: "Delta u'v'-Angle",
+        data: {
+            data: [],
+            layout: deltaUvAngleLayout
+        }
+    }
+];
+
+const doeProductType = "{{ doe.product_type }}";
+    
+    document.getElementById("plotBtn").addEventListener("click", async () => {
+        try {
+            const doeId = getDOEId();
+            
+            // 모든 URL 정의
+            const commonUrl1 = `{% url "pao:common_api_1" %}?doe_id=${doeId}`;
+            const commonUrl2 = `{% url "pao:common_api_2" %}?doe_id=${doeId}`;
+            const commonUrl3 = `{% url "pao:common_api_3" %}?doe_id=${doeId}`;
+            const ivUrl = `{% url "pao:selected_does_iv" %}?ids=${doeId}`;
+            const angleUrl = `{% url "pao:doe_angle_charts" %}?doe_id=${doeId}`;
+            
+            // 모든 API 병렬 호출
+            const results = await Promise.allSettled([
+                fetchWithRetry(commonUrl1),
+                fetchWithRetry(commonUrl2),
+                fetchWithRetry(commonUrl3),
+                fetchWithRetry(ivUrl),
+                fetchWithRetry(angleUrl)
+            ]);
+            
+            const [common1Result, common2Result, common3Result, ivResult, angleResult] = results;
+            
+            // 공통 그래프 (항상 렌더링)
+            if (common1Result.value?.success) {
+                Plotly.react("common-chart-1", common1Result.value.data.chart_data, layout1);
+            }
+            if (common2Result.value?.success) {
+                Plotly.react("common-chart-2", common2Result.value.data.chart_data, layout2);
+            }
+            if (common3Result.value?.success) {
+                Plotly.react("common-chart-3", common3Result.value.data.chart_data, layout3);
+            }
+            
+            // ✨ PO일 때만 IV 그래프 렌더링
+            if (doeProductType === "PO") {
+                if (ivResult.value?.success && ivResult.value.data.tag === "success") {
+                    const jv_data = ivResult.value.data.jv_data;
+                    const jv_layout = document.getElementById('iv-chart').layout;
+                    Plotly.react("iv-chart", jv_data, jv_layout);
+                } else if (ivResult.status === "fulfilled" && ivResult.value?.data) {
+                    htmx.trigger(document.body, "toast-message", ivResult.value.data);
+                }
+            }
+            
+            // ✨ TV일 때만 Angle 그래프 렌더링
+            if (doeProductType === "TV") {
+                if (angleResult.value?.success && angleResult.value.data.data.tag === "success") {
+                    const angleData = angleResult.value.data.data;
+                    
+                    Plotly.react(
+                        "angle-spectrum-chart",
+                        angleData.angle_spectrum_data,
+                        angleSpectrumLayout
+                    );
+                    
+                    Plotly.react(
+                        "delta-uv-angle-chart",
+                        angleData.delta_uv_angle_data,
+                        deltaUvAngleLayout
+                    );
+                } else if (angleResult.status === "fulfilled" && angleResult.value?.data) {
+                    htmx.trigger(document.body, "toast-message", angleResult.value.data);
+                }
+            }
+            
+        } catch (error) {
+            console.error("Unknown error:", error);
+        }
+    });
+     	
+const deleteDeviceBaseUrl = '{% url "pao:delete_device" %}?ids='
+	
+function deleteDOE(pk) {
+	var userConfirmed = confirm(`DOE${pk}를 정말 삭제하시겠습니까?`);
+	if (userConfirmed) {
+		const url = deleteDeviceBaseUrl + pk.toSting();
+		location.href = url;
+	} else {
+		return;
+	}
+}
+
+	
+	
+</script>

@@ -1,0 +1,177 @@
+<script>
+```views.py : views.py에서 vjl_data를 만들어서 보냄
+@login_required_hx
+@require_http_methods(["GET"])
+def get_graph_for_selected_ivl(request):
+	ivl_ids_param = request.Get.get("ids", "")
+	if not ivl_ids_param:
+		return JsonResponse({"tag": "warning", "message": "ivl데이터가 없습니다"})
+		
+	ivl_ids = ivl_ids_param.split(",")
+	
+	vjl_list = []
+	# cj, el
+	
+	ivl_plotly_processor = IVLPlotlyProcessor()
+	check_perm = permission_closure(request)
+	unauthorized_list = []
+	for ivl_idx, ivl_id in enumerate(ivl_ids):
+		ivl_expt = IVL.objects.get(id=ivl_id)
+		if not check_perm(ivl_expt):
+			unauthorized_list.append(ivl_id)
+			continue
+		
+		ivl_processed = process_ivl(ivl_expt)
+		
+		ivl_plotly_processor.ivl_processed = ivl_processed
+		ivl_plotly_processor.index = ivl_idx
+		
+		vjl_list.extend(ivl_plotly_processor.get_ivl())
+		#cj, el
+		
+	if unauthorized_list:
+		return JsonResponse({"tag": "error", "message": f"permission denied: {unauthorized_list}")
+		
+	chart_response = {
+		"tag": "success", "vjl_data": vjl_list, "cj_data": cj_list, "el_data": el_list
+	}
+	
+	return JsonResponse(chart_response)
+</script>
+```compare_po.html
+<script>
+	//html
+	<h3 id="rawExperiementData">Raw Experiment Data</h3>
+	<div class="container-lg py-2 mt-2>
+		<div class="row g-4 mb-4">
+			//VJL Chart
+			<div class="col-lg-6">
+				<div class="card h-100">
+					<div class="card-header d-flex align-items-center">
+						<div>
+							<h5 class="card-title mb-0">VJL Chart</h5>
+						</div>
+					</div>
+					<div class="card-body">
+						<div id="vjl-chart"></div>
+					</div>
+				</div>
+			</div>
+			//CJ Chart
+		</div>
+		<div class="row g-4 mb-4">
+			//EL Chart
+			//LT Chart
+		</div>
+		<div class="row g-4 mb-4">
+			//CV Chart
+			//IV Chart
+		</div>
+	</div>
+</script>
+
+<script src="{% static 'vendor/plotly/plotly-3.0.1.min.js' %}"></script>
+<script src="{% static 'vendor/flatted/flatted-3.3.3.min.js' %}"></script>
+<script src="{% static 'vendor/choices/choices.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'vendor/tabulator/js/tabulator.min.js' %}"></script>
+<script src="{% static 'pao/compare_po/modal-handler.js' %}"></script>
+<script type="module" src="{% static 'pao/components/chart-editor.es.js' %}"></script>
+<script src="{% static 'pao/compare_po/chart-editor-bridge.js' %}"></script>
+<script src="{% static 'pao/compare_po/chart-main.js' %}"></script>
+<script src="{% static 'pao/compare_po/profile_offcanvas.js' %}"></script>
+<script src="{% static 'pao/compare_po/compare_tables.js' %}"></script>
+<script>
+	//html 하단
+	// profileLayouts은 views.py의 compare_po함수에서 profilepoadditions 모델에 저장해놨던 개인별 레이아웃정보를 불러와서 json.dump해서 context로 return 한 변수임
+	const vjlchartLayout = profileLayouts["vjl-chart"] || {}
+	//나머지 변수
+	
+	// layout은 여기서 결정됨
+	const vjl_config = {
+		data: [],
+		layout: vjlchartLayout
+	};
+	//나머지 변수
+	
+	//js코드중 관련있어보이는것만 가져옴, 여기서 VJLTableEditor를 불러서 그래프를 그리는것 같음
+	document.addEventListener('DOMContentLoaded', async () => {
+		const vjlUrl = `{% url "pao:selected_does_ivl" %}?ids=${ids}`;
+		const extraURLs = {a,b,c, getGraphBaseUrl: `{% url "pao:get_graph_for_selected_ivl" %}`,}
+		const vjlTableContainer = document.getElementById("vjl-table-container");
+		const vjlEditor = new VJLTableEditor(vjlUrl, vjlTableContainer, extraURLs);
+	document.getElementById("saveSelectedBtn").addEventListener("click", () => {
+		const VJLTableData = vjlEditor.table.getDAta()
+		handleSaveButtonClick(doeList, profileId, baseAPSaveUrl, baseAPaddSaveUrl, VJLTableData);
+	});
+)
+		
+</script>
+
+``` chart-main.js
+<script>
+	//코드 일부만 가져옴. vjl_config를 여기서 vjl-chart에 맞춰 chartConfigs에 넣음. 
+	async createAllCharts() {
+	/** @type {Array<ChartConfig>} */
+	const chartConfigs = [
+		{
+			id: "vjl-chart",
+			title: "VJL Chart",
+			data: vjl_config,
+		}, 
+		/** 그외 여러 데이터 */
+	];
+	//모든차트를병렬로생성
+	/** @type {Array<Promise<void>>} */
+	const chartPromises = chartConfigs.map((config) =>
+		this.createChart(config),);
+	await Promise.all(chartPromises);
+	}
+</script>
+
+```compare_tables.js에서 Plotly.react 진행함
+<script>
+class VJLTableEditor {
+	constructor(url, container, extraURLs) {
+		//
+	}
+	init() {
+		//
+	}
+	multiCellEditBtn() {
+		//
+	}
+	submitBtnInit() {
+		//
+	}
+	regressionBtnInit() {
+		//
+	}
+	protBtnInit() {
+		document.getElementById("plotBtn").addEventListener("click", async() => {
+			const selectedRows = this.table.getRangesData().flat();
+			const ids = selectedRows.map((row) => row.id);
+			const graphURL = `${this.extraURLs.getGraphBaseUrl}?ids=${ids.join(",")}`;
+			
+			fetch(graphURL)
+				.then(function (res) {
+					if (!res.ok) {
+						throw new Error(`HTTP오류: ${res.status}`);
+					}
+					return res.json();
+				})
+				.then(function (data) {
+					if (data.tag === "success") {
+						const vjl_layout = document.getElementBtId("vjl-chart").layout;
+						Plotly.react("vjl-chart", data.vjl_data, vjl_layout);
+						//cj,el 동일
+					} else {
+						htmx.trigger(document.body, "toast-message", data);
+					}
+				})
+				.catch(function (error) {
+					//
+				});
+		});
+	}
+}
+</script>

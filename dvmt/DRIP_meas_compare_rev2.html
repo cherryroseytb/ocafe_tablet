@@ -1,0 +1,451 @@
+{% extends "dvmt/base.html" %} 
+{% load static %} 
+{% load django_bootstrap5 %}
+
+{% block page_content %}
+
+<div class="container mt-4">
+  <h2>Measurement Characteristic</h2>
+  <hr/>  
+  
+  <!-- 드롭다운 필터 (pd_equip, ms_equip) -->  
+  <div class="d-flex mb-3">
+<!--     <div class="me-3">
+  <label for="pdEquipSelect">Select PD Equipment:</label>
+  <select id="pdEquipSelect" class="form-select" style="width: 200px;">
+    <option value="" {% if selected_pd_equip == 'All' %}selected{% endif %}>All PD Equip</option>
+    {% for equip in pd_equip_data %}
+      <option value="{{ equip }}" {% if selected_pd_equip == equip %}selected{% endif %}>{{ equip }}</option>
+    {% endfor %}
+  </select>
+</div> -->
+    <div>
+      <label for="msEquipSelect">Select MS Equipment:</label>
+      <select id="msEquipSelect" class="form-select" style="width: 200px;">
+        {% for equip in ms_equip_data %}
+          <option value="{{ equip }}" {% if selected_ms_equip == equip %}selected{% endif %}>{{ equip }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>  
+  
+  <!-- 그래프 영역 -->  
+  <div>
+    {% if data_for_selected_ms_equip %}
+      <div class="row p-2 border rounded-3 bg-body-tertiary">
+        {% include "pao/_one_axis_chart.html" with type=selected_ms_equip %}
+      </div>
+    {% else %}
+      <p>No data available for the selected measurement type.</p>
+    {% endif %}
+  </div>  
+  
+  <!-- 컬러맵 드롭다운 -->  
+    <div class="row align-items-center">
+      <div class="col-sm-2">
+        <form method="get" action="">
+          <div class="form-floating m-2">
+            <select name="cmap" class="form-select" id='cmapSelect'></select>
+            <label for="cmapSelect">Color Map</label>
+          </div>
+        </form>
+      </div>
+    
+        <div class="col-sm-10">
+          <div id="topToggleContainer" class="d-flex flex-wrap gap-2 mt-3"></div>
+        </div>
+    </div>
+  <hr/>  
+  
+  <!-- 측정 데이터 테이블 -->  
+  <table class="table mt-4">
+    <thead class="small">
+      <tr>
+        <th style="font-size: 1.2rem;">Graph</th>
+        <th>Material Name</th>
+        <th>PD Equip</th>
+        <th class="{% if selected_ms_equip == 'pl' %}highlighted{% endif %}">peak wavelength</th>
+        <th class="{% if selected_ms_equip == 'plqy' %}highlighted{% endif %}">Quantum efficiency</th>
+        <th class="{% if selected_ms_equip == 'uvvis`' %}highlighted{% endif %}">Bandgap</th>
+        <th class="{% if selected_ms_equip == 'ac3' %}highlighted{% endif %}">HOMO Level</th>
+        <th class="{% if selected_ms_equip == 'ellipsometer' %}highlighted{% endif %}">n,k data</th>
+        <th class="{% if selected_ms_equip == 'ltpl' %}highlighted{% endif %}">triplet energy</th>
+        <th class="{% if selected_ms_equip == 'trpl' %}highlighted{% endif %}">prompt/delayed tau</th>
+        <th class="{% if selected_ms_equip == 'cv' %}highlighted{% endif %}">zero cap(h/e)</th>
+        <th class="{% if selected_ms_equip == 'iv' %}highlighted{% endif %}">mobility</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in table_data %}
+        <tr>
+          <td>
+            <button class="material-toggle-button" data-sample-id="{{ row.table_id }}" data-state="on">ON</button>
+          </td>
+          <td>{{ row.material_name }}</td>
+          <td>{{ row.pd_equip }}</td>
+          <th class="{% if selected_ms_equip == 'pl' %}highlighted{% endif %}">{{ row.pl_property }}</th>
+          <th class="{% if selected_ms_equip == 'plqy' %}highlighted{% endif %}">{{ row.plqy_property }}</th>
+          <th class="{% if selected_ms_equip == 'uvvis' %}highlighted{% endif %}">{{ row.uvvis_property }}</th>
+          <th class="{% if selected_ms_equip == 'ac3' %}highlighted{% endif %}">{{ row.ac3_property }}</th>
+          <th class="{% if selected_ms_equip == 'ellipsometer' %}highlighted{% endif %}">{{ row.ellipsometer_property }}</th>
+          <th class="{% if selected_ms_equip == 'ltpl' %}highlighted{% endif %}">{{ row.ltpl_property }}</th>
+          <th class="{% if selected_ms_equip == 'trpl' %}highlighted{% endif %}">{{ row.trpl_property }}</th>
+          <th class="{% if selected_ms_equip == 'cv' %}highlighted{% endif %}">{{ row.cv_property }}</th>
+          <th class="{% if selected_ms_equip == 'iv' %}highlighted{% endif %}">{{ row.iv_property }}</th>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <hr/>
+</div>
+{% endblock %}
+
+{% block extra_dvmt_js %}
+<script src="{% static 'chart.js/dist/chart.umd.js' %}"></script>
+<script src="{% static 'chart.js/plugins/chartjs-plugin-zoom.min.js' %}"></script>
+<script src="{% static 'chart.js/plugins/hammer.min.js' %}"></script>
+<script src="{% static 'chart.js/custom.js' %}"></script>
+
+<script>
+  const sampleIdToTableId = {{ sampleid_to_tableid|safe }};
+  const tableDataIds = {{ table_data_ids|safe }};
+  let allFilteredSids = [];
+    
+  const tableIdToSampleIds = {};
+  Object.entries(sampleIdToTableId).forEach(([sid, tid]) => {
+      if (!tableIdToSampleIds[tid]) tableIdToSampleIds[tid] = [];
+      tableIdToSampleIds[tid].push(parseInt(sid));
+  });
+  
+  const dvmtData = {
+    sampleIds: {{ sampleids|safe }},
+    chartData: {{ data_for_selected_ms_equip|safe }},
+    selectedType: '{{ selected_ms_equip }}',
+  };
+
+  function updateChartColors(cmap, chart, sampleIdToTableId) {
+    // 차트 데이터 색상 적용
+    const activeTidSet = new Set();
+    chart.data.datasets.forEach((ds) => {
+      const sid = ds.sample_id.toString();
+      const tid = sampleIdToTableId[sid];
+      activeTidSet.add(tid);
+    });
+    
+    const filteredTidSet = new Set();
+    allFilteredSids.forEach(sid => {
+        const tid = sampleIdToTableId[sid.toString()];
+        filteredTidSet.add(tid);
+    });
+    
+    const filteredTids = Array.from(filteredTidSet).sort((a,b) => a - b);
+    const tidToColor = {};
+    filteredTids.forEach((tid, idx) => {
+        tidToColor[tid] = cmap[idx % cmap.length];
+    });
+    
+    chart.data.datasets.forEach((ds) => {
+      const sid = ds.sample_id.toString();
+      const tid = sampleIdToTableId[sid];
+      const color = tidToColor[tid];
+      
+      ds.borderColor = color;
+      ds.backgroundColor = color;
+    });
+    
+    chart.update();
+    createTopToggleButtons();
+
+    // 버튼 색상 적용
+    document.querySelectorAll('.material-toggle-button').forEach(button => {
+      const tid = parseInt(button.dataset.tableId);
+      const color = tidToColor[tid];
+      
+      if (filteredTidSet.has(tid)) {
+          button.disabled = false;
+          button.style.borderColor = color;
+          button.style.opacity = button.dataset.state === "on" ? 0.9 : 0.6;
+      } else {
+          button.disabled = true;
+          button.style.borderColor = gray;
+          button.style.opacity = 0.2 
+      }
+    });
+  }
+
+  function populateCmapSelect(cmapList) {
+    const select = document.getElementById('cmapSelect');
+    select.innerHTML = '';
+    for (const cmapName in cmapList) {
+      const option = document.createElement('option');
+      option.value = cmapName;
+      option.textContent = cmapName;
+      select.appendChild(option);
+    }
+  }
+  
+  function changeEquipmentFilter() {
+//    const pd = document.getElementById('pdEquipSelect').value;
+    const ms = document.getElementById('msEquipSelect').value;
+    const url = new URL(window.location.href);
+
+//    if (pd) url.searchParams.set('pd_equip', pd);
+//    else url.searchParams.delete('pd_equip');
+
+    if (ms) url.searchParams.set('ms_equip', ms);
+    else url.searchParams.delete('ms_equip');
+    
+    url.searchParams.delete('pd_equip');
+
+    window.location.href = url.toString();
+  }
+  
+      
+    function createTopToggleButtons() {
+      const container = document.getElementById("topToggleContainer");
+      if (!container) return;
+      container.innerHTML = '';
+    
+      // 아래의 원본 버튼들을 복제해서 보여줌
+      document.querySelectorAll('.material-toggle-button').forEach(originalBtn => {
+        if (originalBtn.disabled) return;  // 비활성화된 건 제외
+    
+        const clone = originalBtn.cloneNode(true);
+        clone.classList.remove("material-toggle-button");
+        clone.classList.add("top-toggle-button");
+    
+        // 스타일 유지
+        clone.style.borderColor = originalBtn.style.borderColor;
+        clone.style.opacity = originalBtn.style.opacity;
+    
+        // 클릭 시 실제 버튼 클릭 이벤트 호출
+        clone.addEventListener('click', () => {
+          originalBtn.click();  // 원본 버튼 클릭
+          // 스타일 상태 갱신
+          clone.textContent = originalBtn.textContent;
+          clone.style.opacity = originalBtn.style.opacity;
+        });
+    
+        container.appendChild(clone);
+      });
+    }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const ctx = document.getElementById("Chart" + dvmtData.selectedType).getContext("2d");
+    allFilteredSids = dvmtData.Chart.datasets.map(ds => ds,sample_id);
+
+    // 기본 축 설정
+    const xConfig = {
+		type: 'linear',
+		title: {
+			display: true,
+			text: "Wavelength (nm)",
+			font: { size: 15, weight: 'bold' }
+		}
+    };
+    
+    const yConfig = {
+            type: "linear",  // y축 타입을 변수로 처리
+            beginAtZero: false,
+            title: {
+              display: true,
+              text: "Intensity",
+              font: { size: 15, weight: 'bold' }
+            },
+            ticks: { color: 'black', precision: 2 },
+            grid: { color: 'pink' }
+          }
+        }
+        
+    let legendFilterFunction = undefined; // 기본값은 필터링 없음
+
+	if (dvmtData.selectedType.toLowerCase() === 'uvvis') {
+	    // 1. is_trendline 속성을 가진 항목만 범례에서 제외하는 필터 함수 정의
+	    legendFilterFunction = function(legendItem, chartData) {
+	        const dataset = chartData.datasets[legendItem.datasetIndex];
+	        // is_trendline 속성이 없는 항목 또는 False인 항목만 true를 반환하여 표시
+	        return !dataset.is_trendline; 
+	    };
+	    
+	    xConfig.min = 180;
+	    xConfig.max = 1000;
+	}
+    
+    // 조건에 따른 축 설정 (예: iv일 때)
+    if (dvmtData.selectedType.toLowerCase() === 'iv') {
+      dvmtData.chartData.datasets.forEach(ds => {
+        ds.data = ds.data.filter(pt => pt && pt.y > 0 && isFinite(pt.y));
+      });
+      
+      xLabel = 'sqrt(E)';
+      yConfig.title.text = 'Mobility';
+      yConfig.type = 'logarithmic'; 
+      
+      const minYValue = Math.min(...dvmtData.chartData.datasets.flatMap(ds => ds.data.map(pt => pt.y)));
+      yConfig.min = minYValue*0.1;
+      
+      yConfig.ticks = {
+          callback: (val) => (val.toExponential(1)),
+          color: 'blue',
+      };
+    }
+    
+    if (dvmtData.selectedType.toLowerCase() === 'cv') {
+	  dvmtData.chartData.datasets.forEach(ds => {
+	    ds.data = ds.data.filter(pt => pt && pt.y > 0 && isFinite(pt.y));
+	  });
+	  
+	  xConfig.title.text = 'Bias(V)'
+	
+	  yConfig.title.text = 'Capacitance';
+	  yConfig.type = 'logarithmic'; 
+	  
+	  yConfig.ticks = {
+	      callback: (val) => val.toExponential(1),
+	      color: 'black',
+	  };
+    }
+    
+    // 이후 Chart 생성
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dvmtData.chartData.x,
+        datasets: dvmtData.chartData.datasets
+      },
+      options: {
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        responsive: true,
+        scales: {
+			x: xConfig,
+			y: yConfig,
+        },
+        plugins: {
+			title: {
+				display: true,
+				text: dvmtData.selectedType.toUpperCase() + ' Data',
+				font: { size: 18, weight: 'bold' }
+			},
+			legend: {
+				display: true,
+				position: 'bottom',
+				align: 'start',
+				labels: {
+				  font: { size: 11, weight: 'bold' },
+				  usePointStyle: true,
+				   filter: legendFilterFunction 
+				}
+			},
+			zoom: {
+				pan: { enabled: true, mode: 'xy', modifierKey: 'ctrl' },
+				zoom: { wheel: { enabled: true }, mode: 'xy' }
+			}
+        }
+      },
+      plugins: [verticalHoverLine, legendBorder]
+    });
+    
+    if (dvmtData.selectedType.toLowerCase() === 'cv') {
+	  // yAxisID로 수정 (대문자 ID)
+	  const hasY2Axis = dvmtData.chartData.datasets.some(ds => ds.yAxisID === 'y2');
+	  
+	  if (hasY2Axis) {
+	    const y2Config = {
+	      type: 'linear',
+	      position: 'right',
+	      beginAtZero: false,
+	      title: {
+	        display: true,
+	        text: 'Capacitance (EOD)',
+	        font: { size: 15, weight: 'bold' }
+	      },
+	      ticks: {
+	        callback: (val) => val.toExponential(1),  // 지수 표기 추가
+	        color: 'blue',
+	      },
+	      grid: {
+	        color: 'lightgray',
+	        drawOnChartArea: false
+	      }
+	    };
+	    
+	    chart.options.scales.y2 = y2Config;
+	  }
+	}
+
+    // 초기 색상 세팅
+    updateChartColors(cmapList['ppt'], chart, sampleIdToTableId);
+
+    // material-toggle 버튼
+    document.querySelectorAll(".material-toggle-button").forEach(button => {
+      button.addEventListener("click", function () {
+        const tid = parseInt(this.dataset.tableId);
+        const isOn = this.dataset.state === "on";
+        const targetSids = tableIdToSampleIds[tid] || [];
+        
+        this.dataset.state = isOn ? "off" : "on";
+        this.textContent = isOn ? "OFF" : "ON";
+        this.style.opacity = isOn ? 0.6 : 0.9;
+    
+        if (isOn) {
+          chart.data.datasets = chart.data.datasets.filter(ds => !targetSids.includes(ds.sample_id));
+        } else {
+          const toAdd = dvmtData.chartData.datasets.filter(ds => targetSids.includes(ds.sample_id));
+          const cmapName = document.getElementById("cmapSelect").value;
+          const cmap = cmap = cmapList[cmapName];
+          const filteredTids = Array.from(new Set(allFilteredSids.map(sid => sampleIdToTableId[sid.toString()]))).sort((a,b)=>a-b);
+          const tidToColor = {}:
+          filteredTids.forEach((tid, idx) => {
+              tidToColor[tid] = cmap[idx % cmap.length];
+          });
+          
+          toAdd.forEach(ds => {
+            const tid = sampleIdToTableId[ds.sample_id.toString()];
+            const color = tidToColor[tid];
+            ds.borderColor = color;
+            ds.backgroundColor = color;
+            chart.data.datasets.push(ds);
+          });
+          
+          chart.data.datasets.sort((a,b) => {
+              const aIdx = allFilteredSids.indexOf(a.sample_id);
+              const bIdx = allFilteredSids.indexOf(b.sample_id);
+              return aIdx - bIdx;
+          });
+        }
+        chart.update();
+        createTopToggleButtons();
+      });
+    });
+
+    // 컬러맵 변경
+    populateCmapSelect(cmapList);
+    
+    document.getElementById("cmapSelect").addEventListener("change", e => {
+        const cmap = cmapList[e.target.value];
+        updateChartColors(cmap, chart, sampleIdToTableId);
+    });
+    
+//    document.getElementById("pdEquipSelect").addEventListener('change', function () {
+//      changeEquipmentFilter();
+//    });
+    
+    document.getElementById("msEquipSelect").addEventListener('change', function () {
+      changeEquipmentFilter();
+    });
+    
+    const chartVarName = "chart" + dvmtData.selectedType;
+    const charts = [{ chart: chart, type: dvmtData.selectedType }];
+    
+    charts.forEach(({ chart, type }) => {
+        document.getElementById(`reset${type}Button`).onclick = function() {
+            resetZoomChart(chart)
+        };
+    });
+    
+    //charts 동작 여러가지는 생략
+    
+  });
+</script>
+{% endblock extra_dvmt_js %}

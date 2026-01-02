@@ -1,0 +1,67 @@
+{% load static crispy_forms_tags django_bootstrap5 django_htmx %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Line Factor 편집</title>
+    <script src="{% static 'vendor/htmx/htmx.min.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/5.3.3/css/bootstrap.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/1.11.3/font/bootstrap-icons.css' %}">
+</head>
+<body>
+<div class="container mt-4">
+	{% if is_edit_mode %}
+	<h4>Line Factor 수정: {{ edit_instance.label }}</h4>
+	{% else %}
+	<h4>Line Factor 추가</h4>
+	{% endif %}
+	
+	{# ✨ 변경: crispy form만 사용 (내부에 버튼 포함됨) #}
+	<form method="post" onsubmit="return confirmSave();">
+	    {% csrf_token %}
+	    {% crispy form %}
+	</form>
+    
+    <hr>
+    
+    <h5>기존 Line Factor 목록</h5>
+
+    <ul class="list-group">
+        {% for item in line_factors %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            {# ✨ 변경: username 추가 #}
+            {{ item.label }} ({{ item.created_user.full_name }})
+            
+            {# ✨ 변경: 수정 버튼 추가 + is_staff 조건 #}
+            <div>
+                {% if item.created_user == request.user or request.user.is_staff %}
+                <a href="?edit={{ item.id }}" class="btn btn-sm btn-warning me-1">
+                    <i class="bi bi-pencil"></i> 수정
+                </a>
+                <form method="post" action="?delete={{ item.id }}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-danger">
+                        <i class="bi bi-trash"></i> 삭제
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </li>
+        {% empty %}
+        <li class="list-group-item">등록된 항목이 없습니다.</li>
+        {% endfor %}
+    </ul>
+
+</div>
+<script>
+function confirmSave() {
+    var isEditMode = {{ is_edit_mode|yesno:"true,false" }};
+    if (isEditMode) {
+        return confirm('기존 데이터가 덮어씌워집니다. 저장하시겠습니까?');
+    }
+    return true;
+}
+</script>
+</div>
+</body>
+</html>

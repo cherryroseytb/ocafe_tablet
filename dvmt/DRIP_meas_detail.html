@@ -1,0 +1,128 @@
+{% extends 'dvmt/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2>Measurement Detail for {{ fitting_result.mat_name }}</h2>
+    <a href="{% url 'meas_list' %}?{{ request.GET.urlencode }}" class="btn btn-primary">Return to list</a>
+    </div>
+    <hr/>
+
+    <div class="container mt-2">
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link active" id="tab1-tab" data-bs-toggle="tab" href="#tab1" role="tab" aria-controls="tab1" aria-selected="true">Measurement Data</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" id="tab2-tab" data-bs-toggle="tab" href="#tab2" role="tab" aria-controls="tab2" aria-selected="false">Pioneer Data</a>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="myTabContent">
+            <!-- Tab 1 Content -->
+            <div class="tab-pane fade show active" id="tab1" role="tabpanel" aria-labelledby="tab1-tab">
+                <table class="table table-bordered table-sm">
+                    <tbody>
+                        <tr>
+                            <td class="category" rowspan="4">재료</td>
+                            <td><b>HOMO (AC3)</b></td>
+                            <td><b>LUMO (UV-vis)</b></td>
+                            <td><b>Bandgap (UV-vis)</b></td>
+                            <td><b>Singlet level (UV-vis)</b></td>
+                            <td><b>Triplet level (Low-temp PL)</b></td>
+                        </tr>
+                        <tr>
+                            {% include "dvmt/table_cell.html" with value=ac3_intersection_ev %}
+                            <td> {{ LUMO_uvvis|floatformat:2 }} </td>
+                            {% include "dvmt/table_cell.html" with value=uvvis_bandgap %}
+                            <td> {{ uvvis_bandgap|floatformat:2 }} </td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td><b>Quantum Yield (PLQY)</b></td>
+                            <td><b>Peak spectrum (PL)</b></td>
+                            <td><b>TBD</b></td>
+                            <td><b>TBD</b></td>
+                            <td><b>TBD</b></td>
+                        </tr>
+                        <tr>
+                            {% include "dvmt/table_cell.html" with value=plqy_value %}
+                            {% include "dvmt/table_cell.html" with value=pl_peak_wavelength %}
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td class="category" rowspan="4">광학</td>
+                            <td><b>n,k value (ellipsometer)</b></td>
+                            <td><b>Orientation (EDO)</b></td>
+                            <td><b>Delayed Time (prompt, &nbsp;ns)</b></td>
+                            <td><b>Delayed Time (delayed, &nbsp;&#181;s)</b></td>
+                            <td>TBD</td>
+                        </tr>
+                        <tr>
+                            {% include "dvmt/table_cell.html" with value=ellipso_is %}
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>TBD</td>
+                            <td>TBD</td>
+                            <td>TBD</td>
+                            <td>TBD</td>
+                            <td>TBD</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td class="category" rowspan="4">전기</td>
+                            <td><b>Zero field mobility</b></td>
+                            <td><b>Activation energy</b></td>
+                            <td><b>PF factor</b></td>
+                            <td><b>Dielectric constant</b></td>
+                            <td><b>TTA ratio</b></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td><b>Recombination rate</b></td>
+                            <td><b>CV data</b></td>
+                            <td><b>IS data</b></td>
+                            <td><b>TBD</b></td>
+                            <td><b>TBD</b></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        
+            <!-- Tab 2 Content -->
+            <div class="tab-pane fade" id="tab2" role="tabpanel" aria-labelledby="tab2-tab">
+                <table class="table table-bordered mt-4">
+                    <hr>
+                    <p>Pioneer Data는 협의후, 업데이트 예정입니다.</p>
+                    <hr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

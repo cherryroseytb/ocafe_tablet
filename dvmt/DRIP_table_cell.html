@@ -1,0 +1,15 @@
+<!-- table_cell.html -->
+<td {% if value.value %}
+class="hover-link"
+onclick="location.href='{% url 'dvmt:meas_compare' %}?ids={{ fitting_result.mat_name_id }}&type={{ value.type }}'"
+>
+    {% if value.type == 'ellipsometer' %}
+    link
+    {% else %}
+    {{ value.value|floatformat:2 }}
+    {% endif %}
+    
+{% else %}
+>
+{% endif %}
+</td>

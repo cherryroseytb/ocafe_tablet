@@ -1,0 +1,147 @@
+{% extends 'dvmt/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Measurement Detail for {{ sample.material.mat_name }}</h2>
+        <a href="{% url 'dvmt:meas_list' %}?{{ request.GET.urlencode }}" class="btn btn-primary">Return to list</a>
+    </div>
+    <hr/>
+
+    <!-- pd_equip, ms_equip 선택 Dropdown -->
+    <div class="d-flex mb-3">
+        <select id="pd_equip_select" class="form-select me-2">
+            {% for equip in pd_equip_list %}
+                <option value="{{ equip }}" {% if equip == selected_pd_equip %}selected{% endif %}>{{ equip }}</option>
+            {% endfor %}
+        </select>
+
+        <select id="ms_equip_select" class="form-select">
+            {% for equip in ms_equip_list %}
+                <option value="{{ equip }}" {% if equip == selected_ms_equip %}selected{% endif %}>{{ equip }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="container mt-2">
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link active" id="tab1-tab" data-bs-toggle="tab" href="#tab1" role="tab" aria-controls="tab1" aria-selected="true">Measurement Data</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" id="tab2-tab" data-bs-toggle="tab" href="#tab2" role="tab" aria-controls="tab2" aria-selected="false">Pioneer Data</a>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="myTabContent">
+            <!-- Tab 1 Content -->
+            <div class="tab-pane fade show active" id="tab1" role="tabpanel" aria-labelledby="tab1-tab">
+                <table class="table table-bordered table-sm">
+                    <tbody>
+                        <!-- HOMO, LUMO, Bandgap, Singlet, Triplet 추가 -->
+                        <tr>
+                            <td class="category" rowspan="4">재료</td>
+                            <td><b>HOMO (AC3)</b></td>
+                            <td><b>LUMO (UV-vis)</b></td>
+                            <td><b>Bandgap (UV-vis)</b></td>
+                            <td><b>Singlet level (UV-vis)</b></td>
+                            <td><b>Triplet level (LTPL)</b></td>
+                        </tr>
+                        <tr>
+                            {% include "dvmt/table_cell.html" with value=ac3_intersection_ev %}
+                            <td>{{ LUMO_uvvis|floatformat:2 }}</td>
+                            {% include "dvmt/table_cell.html" with value=uvvis_bandgap %}
+                            <td>{{ uvvis_bandgap|floatformat:2 }}</td>
+                            {% include "dvmt/table_cell.html" with value=ltpl_triplet_energy %}
+                        </tr>
+
+                        <!-- PLQY, PL, TRPL 추가 -->
+                        <tr>
+                            <td><b>Quantum Yield (PLQY)</b></td>
+                            <td><b>Peak spectrum (PL)</b></td>
+                            <td><b>Delayed Time (Prompt, ns)</b></td>
+                            <td><b>Delayed Time (Delayed, μs)</b></td>
+                            <td>TBD</td>
+                        </tr>
+                        <tr>
+                            {% include "dvmt/table_cell.html" with value=plqy_value %}
+                            {% include "dvmt/table_cell.html" with value=pl_peak_wavelength %}
+                            {% include "dvmt/table_cell.html" with value=trpl_prompt_tau %}
+                            {% include "dvmt/table_cell.html" with value=trpl_delayed_tau %}
+                            <td></td>
+                        </tr>
+
+                        <!-- Optical (Ellipsometer) -->
+                        <tr>
+                            <td class="category" rowspan="3">광학</td>
+                            <td><b>n, k value (Ellipsometer)</b></td>
+                            <td><b>Orientation (EDO)</b></td>
+                            <td><b>Other Optical Property</b></td>
+                            <td><b>TBD</b></td>
+                            <td>TBD</td>
+                        </tr>
+                        <tr>
+                            {% include "dvmt/table_cell.html" with value=ellipso_is %}
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+
+                        <!-- Electrical (CV, IV 추가) -->
+                        <tr>
+                            <td class="category" rowspan="3">전기</td>
+                            <td><b>Zero Field Mobility (IV)</b></td>
+                            <td><b>PF Factor (IV)</b></td>
+                            <td><b>CV Data</b></td>
+                            <td><b>Dielectric Constant</b></td>
+                            <td><b>TTA Ratio</b></td>
+                        </tr>
+                        <tr>
+                            {% include "dvmt/table_cell.html" with value=iv_zero_field_mobility %}
+                            {% include "dvmt/table_cell.html" with value=iv_pf_factor %}
+                            {% include "dvmt/table_cell.html" with value=cv_zerocap %}
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        
+            <!-- Tab 2 Content -->
+            <div class="tab-pane fade" id="tab2" role="tabpanel" aria-labelledby="tab2-tab">
+                <table class="table table-bordered mt-4">
+                    <hr>
+                    <p>Pioneer Data는 협의 후, 업데이트 예정입니다.</p>
+                    <hr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ pd_equip, ms_equip 선택 변경 시 URL 업데이트 -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("pd_equip_select").addEventListener("change", function () {
+            updateFilterURL();
+        });
+        document.getElementById("ms_equip_select").addEventListener("change", function () {
+            updateFilterURL();
+        });
+
+        function updateFilterURL() {
+            let pdEquip = document.getElementById("pd_equip_select").value;
+            let msEquip = document.getElementById("ms_equip_select").value;
+            let baseUrl = window.location.pathname;
+            let params = new URLSearchParams(window.location.search);
+            
+            if (pdEquip) params.set("pd_equip", pdEquip);
+            if (msEquip) params.set("ms_equip", msEquip);
+            
+            window.location.href = baseUrl + "?" + params.toString();
+        }
+    });
+</script>
+
+{% endblock %}

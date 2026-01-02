@@ -1,0 +1,135 @@
+{% block content %}
+<!-- Header -->
+	<div class="offcanvas-body d-flex flex-column" style="height: 100%">
+		<div class="d-grid gap-2 mt-auto pt-3">
+			<button class="btn btn-success" id="comparePOBtn" type="button">PO 분석페이지로 이동</button>
+		</div>
+		<div class="d-grid gap-2 mt-auto pt-3">
+			<button class="btn btn-success" id="compareTVBtn" type="button">TV 분석페이지로 이동</button>
+		</div>
+	</div>
+	
+	<div class="offcanvas-body d-flex flex-column" style="height: 100%">
+	    <div class="d-grid gap-2 mt-auto pt-3">
+	        <button class="btn btn-success" 
+	                id="compare{{ doe_product_type }}Btn" 
+	                type="button">
+	            {{ doe_product_type }} 분석페이지로 이동
+	        </button>
+	    </div>
+	</div>
+	
+	
+	<div class="btn-group gap-2" role="group">
+	    <div class="form-check">
+	        <input class="form-check-input" type="checkbox" id="ivlExist" />
+	        <label class="form-check-label" for="ivlExist">IVL</label>
+	    </div>
+	    
+	    {% if doe_product_type == 'PO' %}
+	    <div class="form-check">
+	        <input class="form-check-input" type="checkbox" id="cvExist" />
+	        <label class="form-check-label" for="cvExist">CV</label>
+	    </div>
+	    {% endif %}
+	    
+	    {% if doe_product_type == 'TV' %}
+	    <div class="form-check">
+	        <input class="form-check-input" type="checkbox" id="angleExist" />
+	        <label class="form-check-label" for="angleExist">Angle</label>
+	    </div>
+	    {% endif %}
+	</div>
+{% endblock content %}
+{% block extra_js %}
+<script>
+
+	class deviceListEditor {
+		constructor(url, container) {
+			this.container = container;
+			this.url = url;
+			this.selectedDoeMap = new Map();
+			this.existingIds = [];
+			this.init();
+		}
+		init() {
+			this.table = new Tabulator(this.container, {
+			    ajaxURL: this.url,
+			    ajaxResponse: function (utl, params, response) {
+					response.data = response.data.map((item) => ({
+						...item,
+						tpid: `${item.runsheet_lot.toSting().padStart(2, "0")}${item.glas_id.toString().padStart(2, "0")}`,
+						structure: `<button type="button" class="btn btn-sm btn-link p-0" onclick="viewStructure(${item.id})">View</button>`
+						exptData: `IVL:${item.ivl_count}, LT:${item.lt_count}, CV:${item.cv_count, IV:${item.iv_count}, Angle:${item.angle_count}`,
+					}));
+					return response;
+				},
+				// 생략
+			    }
+			//생략	
+			});
+			this.keywordSearch();
+			// 생략
+		}
+		deleteBtn() {
+			// 생략
+		}
+		keywordSearch() {
+		    document.getElementById("applyFilter").addEventListener("click", () => {
+		        const keyword = document.getElementById("keyword").value;
+		        // 수정: 오타 수정 (ckecked -> checked) 및 null 체크 추가
+		        const ivlExist = document.getElementById("ivlExist")?.checked || false;
+		        const cvExist = document.getElementById("cvExist")?.checked || false;
+		        const angleExist = document.getElementById("angleExist")?.checked || false;
+		        
+		        // 변경: 존재하는 필드만 필터에 추가
+		        const filters = [
+		            { field: "keyword", type: "keywords", value: keyword },
+		            // 기존 필터들...
+		            { field: "ivlExist", type: "=", value: ivlExist }
+		        ];
+		        
+		        // cvExist는 PO일 때만 추가
+		        if (document.getElementById("cvExist")) {
+		            filters.push({ field: "cvExist", type: "=", value: cvExist });
+		        }
+		        
+		        // angleExist는 TV일 때만 추가
+		        if (document.getElementById("angleExist")) {
+		            filters.push({ field: "angleExist", type: "=", value: angleExist });
+		        }
+		        
+		        this.table.setFilter(filters);
+		    });
+		}
+		// 생략
+	}
+
+
+
+
+
+	document.addEventListener("DOMContentLoaded", function () {
+		const URL_MAPPING = {
+			'compare_po': "{% url 'pao:compare_po' 0 %}",
+			'compare_tv': "{% url 'pao:compare_tv' 0 %}",
+		}
+		
+		function generateCompareUrl(btnId, urlName) {
+			const btn = document.getElementById(btnId);
+			if (btn) {
+				btn.addEventListener("click", () => {
+					const profileId = "{{ profile.id|default:0 }}";
+					const compareBaseUrl = profileId && URL_MAPPING[urlName] ? URL_MAPPING[urlName].replace("0", profileId) : '';
+					const rows = document.querySelectorAll('#deviceTableBody tr');
+					const ids = Array.from(rows).map(tr => tr.dataset.doeId).filter(Boolean);
+					const finalUrl = `${compareBaseUrl}?ids=${ids.join(",")}`;
+					window.location.href = finalUrl;
+				})
+			}
+		}
+		
+		generateCompareUrl("compareTVBtn", "compare_tv");
+	});
+</script>
+{% endblock extra_js %}

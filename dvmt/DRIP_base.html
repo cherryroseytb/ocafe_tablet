@@ -1,0 +1,151 @@
+{% extends "base.html" %}  <!-- core의 base.html을 상속받음 -->
+{% block extra_css %}
+    .table th, .table td {
+        text-align: center;
+        vertical-align: middle;
+    }
+    .chartBox {
+        width: 100%;
+        height: 100%;
+        padding: 20px;
+        border-radius: 20px;
+        border: solid 3px gray;
+        background: white;
+    }
+    .highlighted {
+        background-color: rgba(255, 165, 0, 0.2) !important;
+    }
+    .material-toggle-button {
+        padding: 5px 10px;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 5px;
+        font-weight: bold;
+        width: 60px;
+        height: 35px;
+        opacity: 0.8;
+    }
+    .container-fluid {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .nav-tabs .nav-item+.nav-item {
+        margin-left: 3px;
+    }
+    .nav-tabs .nav-link.active {
+        background-color: #d0e7ff;
+        color: black;
+    }
+    .nav-tabs .nav-link {
+        background-color: #f0f0f0;
+        color: black;
+    }
+    .category {
+        font-size: 1.2em;
+        font-weight: bold;
+    }
+    td {
+        height: 50px;
+        vertical-align: middle;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+    td.hover-link {
+        color: blue;
+    }
+    td.hover-link:hover {
+        background-color: rgb(246, 245, 239); /* 연한 주황색으로 hover 효과 */
+        cursor: pointer; /* 마우스 커서를 손 모양으로 변경 */
+        font-weight: bold;
+    }
+    .sidebar-link {
+        transition: all 0.2s ease;
+    }
+    .sidebar-link:hover {
+        color: #0d6efd;
+        font-size: 1.05rem;
+        font-weight: bold;
+    }
+{% endblock %}
+
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <!-- meas_sidebar -->
+        <nav id="meas_sidebar" class="col-md-2 d-none d-md-block bg-light sidebar">
+            <div class="position-sticky" style="margin-top: 20px;">
+                <button class="btn align-items-center fw-bold text-start w-100 collapsed" 
+                        style="font-size: 1.25rem;"  
+                        data-bs-toggle="collapse" 
+                        data-bs-target="#dvmt-menu" 
+                        aria-expanded="false"
+                        id="appToggle">
+                    Dev. Materials
+                </button>
+
+                <div class="collapse" id="dvmt-menu">
+                    <ul class="btn-toggle-nav list-unstyled fw-normal pb-1">
+                        <li class="nav-item" style="margin-left: 20px; margin-top: 10px;">
+                            <a href="{% url 'dvmt:meas_list' %}" class="nav-link fw-bold sidebar-link">Search</a>
+                        </li>
+                        <li class="nav-item text-muted" style="margin-left: 40px; font-size: 0.9rem;">
+                            Properties
+                        </li>
+                        <li class="nav-item text-muted" style="margin-left: 40px; font-size: 0.9rem;">
+                            Compare Graph
+                        </li>
+                        <li class="nav-item" style="margin-left: 20px; margin-top: 10px;">
+                            <a href="{% url 'dvmt:meas_manual' %}" class="nav-link fw-bold sidebar-link">Measurement Manual</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <h5 class="sidebar-heading px-3 mt-4 mb-1 text-muted" style="font-size: 0.85rem;">
+                    Other Apps
+                </h5>
+                <ul class="nav flex-column">
+                    <!-- 여기에 다른 앱을 위한 링크 추가 가능 -->
+                </ul>
+            </div>
+        </nav>
+
+        <main class="col-md-10 col-lg-10 px-md-3 my-4">
+            {% block page_content %}
+            {% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // 사이드바 상태를 LocalStorage에서 불러와 설정
+        const appMenu = document.getElementById("dvmt-menu");  // ID 변경
+        const isAppMenuOpen = localStorage.getItem("appMenuOpen") === "true";
+
+        if (isAppMenuOpen) {
+            appMenu.classList.add("show");  // 사이드바가 열린 상태로 표시
+        }
+
+        // 버튼 클릭 시 사이드바 상태를 저장
+        document.getElementById("appToggle").addEventListener("click", function() {
+            const isExpanded = appMenu.classList.contains("show");
+            localStorage.setItem("appMenuOpen", String(!isExpanded));
+        });
+    });
+</script>
+{% block extra_dvmt_js %}
+{% endblock extra_dvmt_js %}
+{% endblock extra_js %}
+
+
+

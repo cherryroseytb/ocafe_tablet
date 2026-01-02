@@ -1,0 +1,19 @@
+
+        
+        
+<scipt>
+	{% for baseline in baselines %}
+	<li class="list-group-item d-flex justify-content-between align-items-center">
+	  {# ✨ 변경: username 추가 #}
+	  {{ baseline.label }} ({{ baseline.created_user.full_name }}) - {{ baseline.baseline_data|length }} points
+	  
+	  {# ✨ 변경: is_staff 조건 추가 #}
+	  {% if baseline.created_user == request.user or request.user.is_staff %}
+	  <form method="post" action="?delete={{ baseline.id }}">
+	    {% csrf_token %}
+	    <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+	  </form>
+	  {% endif %}
+	</li>
+	{% endfor %}
+</scipt>

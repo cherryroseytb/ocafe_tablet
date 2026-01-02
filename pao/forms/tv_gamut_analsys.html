@@ -1,0 +1,391 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>색역분석</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/5.3.3/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/1.11.3/font/bootstrap-icons.css' %}">
+    <script src="{% static 'vendor/plotly/plotly-3.0.1.min.js' %}"></script>
+    <style>
+        /* 최소한의 커스텀 CSS만 유지 */
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status-badge {
+            font-size: 11px;
+            font-weight: 500;
+        }
+    </style>
+</head>    
+<body>
+    <div class="container-fluid p-3" style="background-color: #f8f9fa;">
+        <!-- 헤더 영역 -->
+        <div class="card mb-4">
+            <div class="card-body text-center" id="analysisHeader">
+                <h2 class="card-title text-muted mb-3">
+                    <i class="bi bi-palette me-2"></i>CIE1976 색역분석
+                </h2>
+                <div class="alert alert-warning mb-0" id="analysisInfo">
+                    <div class="text-center">
+                        <div class="loading-spinner mb-3"></div>
+                        <div>부모 창에서 데이터를 받는 중입니다...</div>
+                        <div class="small mt-1">Color Filter와 Line Factor 선택을 확인해주세요.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 컨트롤 영역 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <span class="badge bg-warning text-dark status-badge" id="connectionStatus">
+                            <i class="bi bi-clock me-1"></i>연결 대기 중
+                        </span>
+                        <span class="ms-3 small text-muted">
+                            실시간 연동 | F5: 새로고침
+                        </span>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="refreshData()">
+                                <i class="bi bi-arrow-clockwise me-1"></i>새로고침
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" onclick="window.close()">
+                                <i class="bi bi-x-lg me-1"></i>창 닫기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 그래프 영역 -->
+        <div class="card">
+            <div class="card-body d-flex justify-content-center align-items-center" style="min-height: 600px;">
+                <div id="gamutGraph">
+                    <div id="loadingMessage" class="text-center text-muted">
+                        <div class="loading-spinner mb-3"></div>
+                        <h5 class="mt-3">색역분석 준비 중</h5>
+                        <p class="text-muted">데이터를 불러오는 중입니다...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="{% static 'vendor/bootstrap/5.3.3/bootstrap.bundle.min.js' %}"></script>
+    
+    <script>
+        // 전역 변수
+        let currentGamutData = null;
+        let isWindowReady = false;
+        let connectionStatus = 'waiting';
+
+        // 창 로드 완료 시
+        window.addEventListener('load', function() {
+            isWindowReady = true;
+            console.log('색역분석 창 로드 완료');
+            
+            // 부모 창에 준비 완료 신호
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.postMessage({
+                        type: 'gamutWindowReady'
+                    }, '*');
+                    updateConnectionStatus('connected');
+                } catch (error) {
+                    console.error('부모창 통신 실패:', error);
+                    updateConnectionStatus('error');
+                }
+            } else {
+                updateConnectionStatus('no_parent');
+            }
+        });
+
+        // 부모 창으로부터 메시지 수신
+        window.addEventListener('message', function(event) {
+            
+            if (event.data.type === 'updateGamutData') {
+                currentGamutData = event.data.data;
+                updateAnalysisInfo(
+					currentGamutData.colorFilter, 
+					currentGamutData.lineFactor,
+					currentGamutData.colorFilterLabel, 
+					currentGamutData.lineFactorLabel,
+				);
+                updateConnectionStatus('connected');
+                
+                if (isWindowReady) {
+                    renderGamutChart();
+                }
+            }
+        });
+
+        // 연결 상태 업데이트
+		function updateConnectionStatus(status) {
+		    const statusElement = document.getElementById('connectionStatus');
+		    
+		    switch(status) {
+		        case 'connected':
+		            statusElement.className = 'badge bg-success text-white status-badge';
+		            statusElement.innerHTML = '<i class="bi bi-check-circle me-1"></i>연결됨';
+		            break;
+		        case 'waiting':
+		            statusElement.className = 'badge bg-warning text-dark status-badge';
+		            statusElement.innerHTML = '<i class="bi bi-clock me-1"></i>연결 대기 중';
+		            break;
+		        case 'error':
+		            statusElement.className = 'badge bg-danger text-white status-badge';
+		            statusElement.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>연결 오류';
+		            break;
+		        case 'no_parent':
+		            statusElement.className = 'badge bg-secondary text-white status-badge';
+		            statusElement.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>부모창 없음';
+		            break;
+		    }
+		}
+
+        // 분석 정보 업데이트
+        function updateAnalysisInfo(colorFilter, lineFactor, colorFilterLabel, lineFactorLabel) {
+			const displayColorFilter = colorFilterLabel || colorFilter;
+			const displayLineFactor = lineFactorLabel || lineFactor;
+			
+            document.title = `색역분석 - ${displayColorFilter} × ${displayLineFactor}`;
+            
+            const infoElement = document.getElementById('analysisInfo');
+            infoElement.className = 'info';
+            infoElement.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-palette me-1"></i>Color Filter:</strong> ${displayColorFilter}
+                    </div>
+                    <div class="col-md-6">
+                        <strong><i class="bi bi-graph-up me-1"></i>Line Factor:</strong> ${displayLineFactor}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            마지막 업데이트: ${new Date().toLocaleTimeString('ko-KR')}
+                        </small>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 색역분석 그래프 렌더링
+        function renderGamutChart() {
+            if (!currentGamutData || !currentGamutData.gamutGraphData) {
+                console.warn("색역분석 데이터가 없습니다.");
+                return;
+            }
+            
+            console.log("색역분석 렌더링 시작");
+            
+            // 로딩 메시지 숨기기
+            const loadingMsg = document.getElementById('loadingMessage');
+            if (loadingMsg) {
+                loadingMsg.style.display = 'none';
+            }
+            
+            const gamutData = currentGamutData.gamutGraphData;
+            const traces = [];
+            const cieData = gamutData.cie1976_gamut || [];
+            
+            // CIE1976 Gamut 경계
+            if (cieData.length > 0) {
+                traces.push({
+                    x: cieData.map(p => p[0]), 
+                    y: cieData.map(p => p[1]),
+                    mode: 'lines', 
+                    name: 'CIE1976 Gamut',
+                    line: { color: '#dee2e6', width: 2 },
+                    hovertemplate: 'CIE1976 경계<br>u\': %{x:.3f}<br>v\': %{y:.3f}<extra></extra>'
+                });
+            }
+            
+            // 참조 색공간들
+            const colorMap = {
+                'sRGB': '#28a745',
+                'DCI-P3': '#ffc107', 
+                'BT.2020': '#dc3545'
+            };
+            
+            Object.entries(gamutData.ref_uv || {}).forEach(([name, coords]) => {
+                if (coords && coords.length > 0) {
+                    const closed = [...coords, coords[0]];
+                    traces.push({
+                        x: closed.map(p => p[0]), 
+                        y: closed.map(p => p[1]),
+                        mode: 'lines', 
+                        name: name,
+                        line: { 
+                            color: colorMap[name] || '#6c757d',
+                            width: 3 
+                        },
+                        hovertemplate: `${name}<br>u': %{x:.3f}<br>v': %{y:.3f}<extra></extra>`
+                    });
+                }
+            });
+            
+            // 사용자 데이터
+            Object.entries(gamutData.user_uv || {}).forEach(([label, coords]) => {
+                if (coords && coords.length > 0) {
+                    const closed = [...coords, coords[0]];
+                    traces.push({
+                        x: closed.map(p => p[0]), 
+                        y: closed.map(p => p[1]),
+                        mode: 'lines+markers', 
+                        name: label,
+                        marker: { 
+                            size: 10,
+                            symbol: 'diamond',
+                            line: { width: 2, color: 'white' }
+                        },
+                        line: { width: 4 },
+                        hovertemplate: `${label}<br>u': %{x:.3f}<br>v': %{y:.3f}<extra></extra>`
+                    });
+                }
+            });
+            
+            const layout = {
+                title: {
+                    text: '',
+                    font: { size: 16 }
+                },
+                xaxis: { 
+                    title: {
+                        text: "u'",
+                        font: { size: 14, family: 'Arial, sans-serif' }
+                    },
+                    range: [0, 0.7],
+                    scaleanchor: 'y',
+                    scaleratio: 1,
+                    gridcolor: '#f8f9fa',
+                    zerolinecolor: '#dee2e6'
+                },
+                yaxis: { 
+                    title: {
+                        text: "v'",
+                        font: { size: 14, family: 'Arial, sans-serif' }
+                    },
+                    range: [0, 0.7],
+                    constrain: 'domain',
+                    gridcolor: '#f8f9fa',
+                    zerolinecolor: '#dee2e6'
+                },
+                width: 750,
+                height: 750,
+                margin: { t: 40, b: 80, l: 80, r: 140 },
+                showlegend: true,
+                legend: {
+                    x: 1.05,
+                    y: 1,
+                    xanchor: 'left',
+                    bgcolor: 'rgba(255,255,255,0.9)',
+                    bordercolor: '#dee2e6',
+                    borderwidth: 1
+                },
+                plot_bgcolor: 'white',
+                paper_bgcolor: 'white'
+            };
+            
+            const config = {
+                responsive: false,
+                displayModeBar: true,
+                modeBarButtonsToRemove: [
+                    'pan2d', 'lasso2d', 'select2d', 'autoScale2d', 
+                    'resetScale2d', 'hoverClosestCartesian', 'hoverCompareCartesian'
+                ],
+                displaylogo: false,
+                toImageButtonOptions: {
+                    format: 'png',
+                    filename: `gamut_analysis_${currentGamutData.colorFilter}_${currentGamutData.lineFactor}`,
+                    height: 750,
+                    width: 750,
+                    scale: 2
+                }
+            };
+            
+            Plotly.newPlot('gamutGraph', traces, layout, config);
+            console.log("색역분석 그래프 렌더링 완료");
+        }
+
+        // 유틸리티 함수들
+        function refreshData() {
+            console.log("🔄 새로고침 버튼 클릭됨");
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.postMessage({
+                        type: 'requestGamutData'
+                    }, '*');
+                    console.log("부모창에 데이터 요청 전송");
+                } catch (error) {
+                    console.error('데이터 요청 실패:', error);
+                    alert('부모창과의 통신에 실패했습니다.');
+                }
+            } else {
+                console.log("부모창이 없거나 닫혀있음");
+                alert('부모창을 찾을 수 없습니다.');
+            }
+        }
+
+        // 창 닫힐 때 부모 창에 알림
+        window.addEventListener('beforeunload', function() {
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.postMessage({
+                        type: 'gamutWindowClosed'
+                    }, '*');
+                } catch (error) {
+                    console.error('창 닫힘 알림 실패:', error);
+                }
+            }
+        });
+
+        // 키보드 단축키 (수정된 버전)
+        document.addEventListener('keydown', function(e) {
+            console.log("키 입력:", e.key);
+            
+            if (e.key === 'Escape') {
+                console.log("ESC 키 감지됨");
+                e.preventDefault();
+                focusParent();
+            } else if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+                console.log("새로고침 키 감지됨");
+                e.preventDefault();
+                refreshData();
+            }
+        });
+
+        // 연결 상태 주기적 확인
+        setInterval(function() {
+            if (window.opener && window.opener.closed) {
+                updateConnectionStatus('no_parent');
+            }
+        }, 5000);
+        
+        // 페이지 로드 시 키보드 이벤트 테스트
+        console.log("키보드 이벤트 리스너 등록 완료");
+        console.log("ESC: 부모창 포커스, F5/Ctrl+R: 새로고침");
+    </script>
+</body>
+</html>

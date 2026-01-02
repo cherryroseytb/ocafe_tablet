@@ -1,0 +1,748 @@
+{% extends "pao/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    /* 최소한의 커스텀 스타일 */
+    .sidebar {
+        position: sticky;
+        top: 70px;
+        height: calc(100vh - 90px);
+        overflow-y: auto;
+    }
+    
+    .nav-link {
+        transition: all 0.3s;
+    }
+    
+    .nav-link:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+        padding-left: 20px;
+    }
+    
+    .nav-link.active {
+        background-color: #0d6efd;
+        color: white !important;
+        border-radius: 5px;
+    }
+    
+    .guide-section {
+        display: none;
+        animation: fadeIn 0.5s;
+    }
+    
+    .guide-section.active {
+        display: block;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .guide-image {
+        max-width: 100%;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin: 20px 0;
+    }
+    
+    .step-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        display: inline-block;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- 사이드바 -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+            <div class="position-sticky pt-3">
+                <h5 class="px-3 mb-3 text-muted">PAO 가이드</h5>
+                <ul class="nav flex-column" id="guideNav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" data-section="intro">
+                            <i class="bi bi-house-door me-2"></i>
+                            소개
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="signup">
+                            <i class="bi bi-person-plus me-2"></i>
+                            1. 회원가입
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="basic-sharing">
+                            <i class="bi bi-share me-2"></i>
+                            2. 기본 공유
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="profile-create">
+                            <i class="bi bi-file-earmark-plus me-2"></i>
+                            3. 프로필 생성
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="analysis-setup">
+                            <i class="bi bi-sliders me-2"></i>
+                            4. 분석 조건 설정
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="data-analysis">
+                            <i class="bi bi-graph-up me-2"></i>
+                            5. 데이터 분석
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="condition-edit">
+                            <i class="bi bi-pencil-square me-2"></i>
+                            6. 분석 조건 수정
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="save-analysis">
+                            <i class="bi bi-save me-2"></i>
+                            7. 분석 조건 저장
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="share-analysis">
+                            <i class="bi bi-share-fill me-2"></i>
+                            8. 분석 공유
+                        </a>
+                    </li>
+                </ul>
+                
+                <hr class="my-3">
+                
+                <div class="px-3">
+                    <a href="{% url 'pao:device_list' %}" class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-play-fill me-2"></i>
+                        시작하기
+                    </a>
+                    <a href="{% url 'root' %}" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-house me-2"></i>
+                        홈으로
+                    </a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            
+            <!-- 소개 섹션 -->
+            <div id="intro" class="guide-section active">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">PAO 분석 플랫폼 소개</h1>
+                </div>
+                
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h3 class="card-title">
+                                    <i class="bi bi-lightbulb text-warning me-2"></i>
+                                    PAO란?
+                                </h3>
+                                <p class="card-text lead">
+                                    PAO(Performance Analysis for OLED)는 TV/OLED 디바이스의 성능을 
+                                    종합적으로 분석하고 시각화하는 통합 플랫폼입니다.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h4 class="card-title mb-3">
+                                    <i class="bi bi-star text-primary me-2"></i>
+                                    주요 기능
+                                </h4>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="d-flex align-items-start">
+                                            <i class="bi bi-check-circle-fill text-success me-2 mt-1"></i>
+                                            <div>
+                                                <strong>실시간 데이터 분석</strong>
+                                                <p class="text-muted small mb-0">IVL, Angle, LT 데이터 실시간 처리</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex align-items-start">
+                                            <i class="bi bi-check-circle-fill text-success me-2 mt-1"></i>
+                                            <div>
+                                                <strong>10가지 분석 차트</strong>
+                                                <p class="text-muted small mb-0">J-V, Spectrum, 색좌표 등</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex align-items-start">
+                                            <i class="bi bi-check-circle-fill text-success me-2 mt-1"></i>
+                                            <div>
+                                                <strong>Excel Export</strong>
+                                                <p class="text-muted small mb-0">선택적 데이터 내보내기</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex align-items-start">
+                                            <i class="bi bi-check-circle-fill text-success me-2 mt-1"></i>
+                                            <div>
+                                                <strong>협업 기능</strong>
+                                                <p class="text-muted small mb-0">분석 프로필 공유 및 협업</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4">
+                        <div class="card bg-primary text-white mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    시작하기
+                                </h5>
+                                <p class="card-text">
+                                    왼쪽 메뉴에서 단계별 가이드를 확인하세요.
+                                </p>
+                                <hr class="bg-white">
+                                <small>추천 순서: 회원가입 → 프로필 생성 → 분석</small>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <img src="{% static 'images/guide/intro-dashboard.png' %}" 
+                                 class="card-img-top" 
+                                 alt="대시보드 미리보기"
+                                 onerror="this.src='https://via.placeholder.com/400x300?text=Dashboard+Preview'">
+                            <div class="card-body">
+                                <p class="card-text text-muted small">
+                                    <i class="bi bi-image me-1"></i>
+                                    PAO 대시보드 화면
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1. 회원가입 -->
+            <div id="signup" class="guide-section">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <span class="step-badge">Step 1</span>
+                        회원가입
+                    </h1>
+                </div>
+                
+                <div class="alert alert-info" role="alert">
+                    <i class="bi bi-info-circle me-2"></i>
+                    PAO를 사용하려면 먼저 계정을 생성해야 합니다.
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">1.1 회원가입 페이지 접속</h4>
+                        <p>홈페이지 우측 상단의 <strong>"회원가입"</strong> 버튼을 클릭합니다.</p>
+                        <img src="{% static 'images/guide/signup-button.png' %}" 
+                             class="guide-image" 
+                             alt="회원가입 버튼"
+                             onerror="this.src='https://via.placeholder.com/800x400?text=Signup+Button'">
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">1.2 정보 입력</h4>
+                        <p>필수 정보를 입력합니다:</p>
+                        <ul>
+                            <li><strong>이메일:</strong> 로그인 ID로 사용됩니다</li>
+                            <li><strong>이름:</strong> 실명을 입력하세요</li>
+                            <li><strong>비밀번호:</strong> 8자 이상, 영문+숫자 조합</li>
+                            <li><strong>소속:</strong> 부서명 또는 팀명</li>
+                        </ul>
+                        <img src="{% static 'images/guide/signup-form.png' %}" 
+                             class="guide-image" 
+                             alt="회원가입 폼"
+                             onerror="this.src='https://via.placeholder.com/800x600?text=Signup+Form'">
+                    </div>
+                </div>
+                
+                <div class="card border-success mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            완료!
+                        </h5>
+                        <p class="card-text mb-0">
+                            회원가입이 완료되면 자동으로 로그인됩니다. 
+                            이제 <strong>프로필을 생성</strong>하여 분석을 시작할 수 있습니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 기본 공유 -->
+            <div id="basic-sharing" class="guide-section">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <span class="step-badge">Step 2</span>
+                        기본 공유
+                    </h1>
+                </div>
+                
+                <div class="alert alert-warning" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    데이터를 분석하기 전에 필요한 DOE(Device)가 공유되어 있어야 합니다.
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">2.1 공유 권한 확인</h4>
+                        <p>관리자 또는 데이터 소유자가 DOE를 공유해야 합니다.</p>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>권한</th>
+                                        <th>설명</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge bg-primary">소유자</span></td>
+                                        <td>모든 권한 (수정, 삭제, 공유)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-success">편집</span></td>
+                                        <td>데이터 수정 가능</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-info">읽기</span></td>
+                                        <td>데이터 조회 및 분석만 가능</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <img src="{% static 'images/guide/sharing-permissions.png' %}" 
+                             class="guide-image" 
+                             alt="공유 권한"
+                             onerror="this.src='https://via.placeholder.com/800x400?text=Sharing+Permissions'">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 프로필 생성 -->
+            <div id="profile-create" class="guide-section">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <span class="step-badge">Step 3</span>
+                        프로필 생성
+                    </h1>
+                </div>
+                
+                <div class="alert alert-info" role="alert">
+                    <i class="bi bi-info-circle me-2"></i>
+                    분석 프로필은 분석 조건과 설정을 저장하는 단위입니다.
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">3.1 프로필 생성하기</h4>
+                        <ol class="mb-3">
+                            <li>Device List 페이지로 이동</li>
+                            <li>"새 프로필 생성" 버튼 클릭</li>
+                            <li>프로필 제목과 설명 입력</li>
+                            <li>저장</li>
+                        </ol>
+                        <img src="{% static 'images/guide/profile-create.png' %}" 
+                             class="guide-image" 
+                             alt="프로필 생성"
+                             onerror="this.src='https://via.placeholder.com/800x500?text=Profile+Create'">
+                    </div>
+                </div>
+                
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-lightbulb text-warning me-2"></i>
+                            Tip
+                        </h5>
+                        <p class="card-text mb-0">
+                            프로필 제목은 분석 목적을 명확히 나타내도록 작성하세요. 
+                            예: "Q4 성능 비교", "Red OLED 수명 테스트"
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 분석 조건 설정 -->
+            <div id="analysis-setup" class="guide-section">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <span class="step-badge">Step 4</span>
+                        분석 조건 설정
+                    </h1>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">4.1 DOE 선택</h4>
+                        <p>분석할 디바이스(DOE)를 선택합니다.</p>
+                        <img src="{% static 'images/guide/doe-selection.png' %}" 
+                             class="guide-image" 
+                             alt="DOE 선택"
+                             onerror="this.src='https://via.placeholder.com/800x500?text=DOE+Selection'">
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">4.2 Color Filter & Line Factor 선택</h4>
+                        <p>분석에 사용할 필터와 팩터를 선택합니다.</p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Color Filter</h6>
+                                <p class="text-muted small">RGB 색 공간 변환에 사용</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Line Factor</h6>
+                                <p class="text-muted small">스펙트럼 보정 계수</p>
+                            </div>
+                        </div>
+                        <img src="{% static 'images/guide/filter-selection.png' %}" 
+                             class="guide-image" 
+                             alt="필터 선택"
+                             onerror="this.src='https://via.placeholder.com/800x400?text=Filter+Selection'">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. 데이터 분석 -->
+            <div id="data-analysis" class="guide-section">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <span class="step-badge">Step 5</span>
+                        데이터 분석
+                    </h1>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">5.1 테이블 데이터 확인</h4>
+                        <p>선택한 DOE의 측정 데이터가 테이블에 표시됩니다.</p>
+                        <ul>
+                            <li>헤더 클릭: 컬럼 선택 (파란색)</li>
+                            <li>헤더 우클릭: Reference 지정 (빨간색)</li>
+                            <li>드래그: 컬럼 순서 변경</li>
+                        </ul>
+                        <img src="{% static 'images/guide/table-view.png' %}" 
+                             class="guide-image" 
+                             alt="테이블 뷰"
+                             onerror="this.src='https://via.placeholder.com/800x500?text=Table+View'">
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">5.2 차트 생성</h4>
+                        <p>"그래프 생성" 버튼을 클릭하면 10가지 분석 차트가 자동 생성됩니다.</p>
+                        <div class="row row-cols-2 row-cols-md-3 g-3 mt-2">
+                            <div class="col">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-graph-up fs-1 text-primary"></i>
+                                        <h6 class="mt-2">J-V 차트</h6>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-bar-chart fs-1 text-success"></i>
+                                        <h6 class="mt-2">cd/A-J 차트</h6>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-activity fs-1 text-info"></i>
+                                        <h6 class="mt-2">Spectrum</h6>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-pie-chart fs-1 text-warning"></i>
+                                        <h6 class="mt-2">색좌표</h6>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-speedometer2 fs-1 text-danger"></i>
+                                        <h6 class="mt-2">LT 차트</h6>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-grid fs-1 text-secondary"></i>
+                                        <h6 class="mt-2">+ 5개 더</h6>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">5.3 Excel Export</h4>
+                        <p>선택한 컬럼만 Excel 파일로 내보낼 수 있습니다.</p>
+                        <div class="alert alert-success" role="alert">
+                            <i class="bi bi-check-circle me-2"></i>
+                            파일명: <code>프로필제목_YYMMDD.xlsx</code> 형식으로 저장됩니다.
+                        </div>
+                        <img src="{% static 'images/guide/excel-export.png' %}" 
+                             class="guide-image" 
+                             alt="Excel Export"
+                             onerror="this.src='https://via.placeholder.com/800x400?text=Excel+Export'">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. 분석 조건 수정 -->
+            <div id="condition-edit" class="guide-section">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <span class="step-badge">Step 6</span>
+                        분석 조건 수정
+                    </h1>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">6.1 필터 변경</h4>
+                        <p>Color Filter나 Line Factor를 변경하면 테이블과 차트가 자동 업데이트됩니다.</p>
+                        <img src="{% static 'images/guide/filter-change.png' %}" 
+                             class="guide-image" 
+                             alt="필터 변경"
+                             onerror="this.src='https://via.placeholder.com/800x400?text=Filter+Change'">
+                    </div>
+                </div>
+                
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            주의사항
+                        </h5>
+                        <p class="card-text mb-0">
+                            조건을 변경하면 이전 분석 결과는 사라집니다. 
+                            필요한 경우 먼저 <strong>저장</strong>하세요.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. 분석 조건 저장 -->
+            <div id="save-analysis" class="guide-section">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <span class="step-badge">Step 7</span>
+                        분석 조건 저장
+                    </h1>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">7.1 저장하기</h4>
+                        <p>"저장" 버튼을 클릭하면 현재 분석 조건이 프로필에 저장됩니다.</p>
+                        <div class="alert alert-info" role="alert">
+                            저장되는 정보:
+                            <ul class="mb-0 mt-2">
+                                <li>선택한 DOE 목록</li>
+                                <li>Color Filter & Line Factor</li>
+                                <li>Aging Time</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. 분석 공유 -->
+            <div id="share-analysis" class="guide-section">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">
+                        <span class="step-badge">Step 8</span>
+                        분석 공유
+                    </h1>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">8.1 프로필 공유</h4>
+                        <p>다른 사용자와 분석 프로필을 공유할 수 있습니다.</p>
+                        <ol>
+                            <li>프로필 목록에서 공유할 프로필 선택</li>
+                            <li>"공유" 버튼 클릭</li>
+                            <li>공유할 사용자 이메일 입력</li>
+                            <li>권한 선택 (읽기/편집)</li>
+                            <li>공유 완료</li>
+                        </ol>
+                        <img src="{% static 'images/guide/share-profile.png' %}" 
+                             class="guide-image" 
+                             alt="프로필 공유"
+                             onerror="this.src='https://via.placeholder.com/800x500?text=Share+Profile'">
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">8.2 공유 권한 관리</h4>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>권한</th>
+                                        <th>설명</th>
+                                        <th>가능한 작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge bg-danger">소유자</span></td>
+                                        <td>프로필 생성자</td>
+                                        <td>모든 작업 가능 (삭제 포함)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-warning">편집</span></td>
+                                        <td>편집 권한</td>
+                                        <td>조건 수정, 저장, 차트 생성</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-info">읽기</span></td>
+                                        <td>조회 권한</td>
+                                        <td>데이터 조회, Export만 가능</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card border-success">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            가이드 완료!
+                        </h5>
+                        <p class="card-text">
+                            이제 PAO의 모든 기능을 활용할 수 있습니다. 
+                            궁금한 점이 있으면 관리자에게 문의하세요.
+                        </p>
+                        <hr>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'pao:device_list' %}" class="btn btn-success">
+                                <i class="bi bi-play-fill me-2"></i>
+                                분석 시작하기
+                            </a>
+                            <a href="#intro" class="btn btn-outline-secondary" onclick="showSection('intro')">
+                                <i class="bi bi-arrow-up me-2"></i>
+                                처음으로
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const navLinks = document.querySelectorAll('#guideNav .nav-link');
+    const sections = document.querySelectorAll('.guide-section');
+    
+    // 네비게이션 클릭 이벤트
+    navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const targetSection = this.getAttribute('data-section');
+            
+            // 모든 섹션 숨기기
+            sections.forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // 모든 네비게이션 링크 비활성화
+            navLinks.forEach(navLink => {
+                navLink.classList.remove('active');
+            });
+            
+            // 선택한 섹션 표시
+            document.getElementById(targetSection).classList.add('active');
+            
+            // 선택한 네비게이션 활성화
+            this.classList.add('active');
+            
+            // 상단으로 스크롤 (부드럽게)
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+            
+            // URL 해시 업데이트 (뒤로가기 지원)
+            history.pushState(null, null, `#${targetSection}`);
+        });
+    });
+    
+    // 페이지 로드 시 URL 해시 확인
+    function checkHash() {
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+            const targetLink = document.querySelector(`[data-section="${hash}"]`);
+            if (targetLink) {
+                targetLink.click();
+            }
+        }
+    }
+    
+    // 초기 로드 및 뒤로가기 이벤트
+    checkHash();
+    window.addEventListener('popstate', checkHash);
+    
+    // 전역 함수로 등록 (HTML에서 직접 호출 가능)
+    window.showSection = function(sectionId) {
+        const targetLink = document.querySelector(`[data-section="${sectionId}"]`);
+        if (targetLink) {
+            targetLink.click();
+        }
+    };
+});
+</script>
+{% endblock %}

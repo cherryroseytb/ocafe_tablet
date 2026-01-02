@@ -1,0 +1,475 @@
+{% extends "dvmt/base.html" %}
+{% load static %}
+{% load django_bootstrap5 %}
+
+{% block page_content %}
+<div class="container mt-4">
+    <h2>Measurement Characteristic</h2>
+    <hr/>
+
+    <!-- 드롭다운 메뉴 -->
+    <div class="mt-3 mb-3">
+        <label for="measurementType">Select Measurement Type:</label>
+        <select id="measurementType" class="form-select" style="width: 200px;" onchange="changeMeasurementType()">
+            {% for measurement_type in available_types %}
+                <option value="{{ measurement_type }}" {% if selected_type == measurement_type %} selected{% endif %}>{{ measurement_type }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- 그래프 포함 -->
+    <div>
+        {% if data_for_selected_type %}
+        <div class="row p-2 border rounded-3 bg-body-tertiary">
+            {% include "pao/_one_axis_chart.html" with type=selected_type %}
+        </div>
+        {% else %}
+            <p>No data available for the selected measurement type.</p>
+        {% endif %}
+    </div>
+    
+    <div class="row">
+        <form method="get" action="" class="col-sm-2">
+            <div class="form-floating m-2">
+                <select name="cmp" class="form-select" id='cmapSelect'></select>
+                <label for="cmapSelect">Color Map</label>
+            </div>
+        </form>
+    </div>
+
+    <hr/>
+
+    <!-- 테이블 표시 -->
+    <table class="table mt-4">
+        <thead>
+            <tr>
+                <th>Graph</th>
+                <th>Material Name</th>
+                <th class="{% if selected_type == 'pl' %}highlighted{% endif %}">Peak Wavelength<br>(PL, nm)</th>
+                <th class="{% if selected_type == 'plqy' %}highlighted{% endif %}">Quantum Efficiency<br>(PLQY, %)</th>
+                <th class="{% if selected_type == 'uvvis' %}highlighted{% endif %}">Bandgap<br>(UV-Vis, eV)</th>
+                <th class="{% if selected_type == 'ac3' %}highlighted{% endif %}">HOMO Level<br>(AC3, eV)</th>
+                <th class="{% if selected_type == 'ellipsometer' %}highlighted{% endif %}">n,k data<br>(Ellipsometer)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in table_data %}
+                <tr>
+                    <td>
+                        <button class="material-toggle-button"
+                                data-material-id="{{ item.material_id }}"
+                                data-state="on">
+                            ON
+                        </button>
+                    </td>
+                    <td>{{ item.material_name }}</td>
+                    <td class="{% if selected_type == 'pl' %}highlighted{% endif %}">
+                        {% if item.pl_property is not None %}
+                            {{ item.pl_property|floatformat:0 }}
+                        {% else %}
+                            <!-- empty -->
+                        {% endif %}
+                    </td>
+                    <td class="{% if selected_type == 'plqy' %}highlighted{% endif %}">
+                        {% if item.plqy_property is not None %}
+                            {{ item.plqy_property|floatformat:3 }}
+                        {% else %}
+                            <!-- empty -->
+                        {% endif %}
+                    </td>
+                    <td class="{% if selected_type == 'uvvis' %}highlighted{% endif %}">
+                        {% if item.uvvis_property is not None %}
+                            {{ item.uvvis_property|floatformat:2 }}
+                        {% else %}
+                            <!-- empty -->
+                        {% endif %}
+                    </td>
+                    <td class="{% if selected_type == 'ac3' %}highlighted{% endif %}">
+                        {% if item.ac3_property is not None %}
+                            {{ item.ac3_property|floatformat:2 }}
+                        {% else %}
+                            <!-- empty -->
+                        {% endif %}
+                    </td>
+                    <td class="{% if selected_type == 'ellipsometer' %}highlighted{% endif %}">
+                        {% if item.ellipsometer_property is not None %}
+                            {{ item.ellipsometer_property }}
+                        {% else %}
+                            <!-- empty -->
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <hr/>
+</div>
+{% endblock %}
+
+{% block extra_dvmt_js %}
+<script src="{% static 'chart.js/dist/chart.umd.js' %}"></script>
+<script src="{% static 'chart.js/plugins/hammer.min.js' %}"></script>
+<script src="{% static 'chart.js/plugins/chartjs-plugin-zoom.min.js' %}"></script>
+<script src="{% static 'chart.js/custom.js' %}"></script>
+<script>
+
+    const selectedType = '{{ selected_type }}';
+    const materialsIds = {{ material_ids|safe }};
+    const data = {{ data_for_selected_type|safe }};
+    const chartMap = {};
+    const materialIdsOrder = [...materialIds];
+    
+    function refreshDatasetsOrder(chart, materialIdsOrder) {
+        chart.data.datasets.sort((a,b) => {
+            return materialIdsOrder.indexOf(a.material_id) - materialIdsOrder.indexOf(b.material_id);
+        });
+        chart.update()
+    }
+    
+    
+    
+    function createChart(type, data) {
+        if (!data || !data.x || !data.datasets) {
+            return;
+        }
+        const canvasElement = document.getElementById('Chart' + type);
+        if (!canvasElement) {
+            return;
+        }
+
+    function addDatasetToChart(materialId) {
+        const chart = chartMap[selectedType];
+        if (!chart) return;
+    
+        const selectedCmap = cmapSelect.value;
+        const colors = cmapList[selectedCmap] || cmapList['ppt'];
+        const colorMap = generateColorMap(materialIds, colors);
+        // materialId에 맞는 데이터셋을 찾기
+        const datasetsToAdd = data.datasets.filter(dataset => dataset.material_id === parseInt(materialId));
+    
+        // 찾은 데이터셋을 chart에 추가
+        if (datasetsToAdd.length) {
+            datasetsToAdd.forEach(dataset => {
+                const color = colorMap[dataset.material_id];
+                dataset.borderColor = color;
+                dataset.backgroundColor = color;
+                chart.data.datasets.push(dataset);
+            });
+            refreshDatasetsOrder(chart, materialIdsOrder);
+        }
+    }
+    
+    function removeDatasetFromChart(materialId) {
+        const chart = chartMap[selectedType];
+        if (!chart) return;
+
+        // materialId와 일치하는 데이터셋을 필터링하여 제거
+        chart.data.datasets = chart.data.datasets.filter(dataset => dataset.material_id !== parseInt(materialId));
+        chart.update();
+    }
+    
+    
+    
+    function generateColorMap(material_ids, colors) {
+        const colorMap = {};
+        material_ids.forEach((id, index) => {
+            colorMap[id] = colors[index % colors.length];
+        });
+        return colorMap;
+    }
+    
+    const iniProgress = document.getElementById('initialProgress');
+    const progress = document.getElementById('animationProgress');
+    
+    function createChart(type, data) {
+        console.log(`Creating chart for type: ${type}`);
+        console.log(`Data:`, data);
+        
+        if (!data || !data.x || !data.datasets) {
+            console.warn(`No data available for type: ${type}`);
+            return;
+        }
+        
+        const canvasElement = document.getElementById('Chart' + type);
+        if (!canvasElement) {
+            console.warn(`Canvas element not found for type: ${type}`);
+            return;
+        }
+        
+        const ctx = canvasElement.getContext('2d');
+        
+        const config = {
+            type: 'line',
+            data: {
+                labels: data.x,
+                datasets: data.datasets
+            },
+            option: {
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                responsive: true,
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: {
+                            display: true,
+                            text: 'Wavelength(nm)',
+                            font: {
+                                family: "Arial",
+                                size: 15,
+                                weight: "bold"
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Intensity',
+                            font: {
+                                family: "Arial",
+                                size: 15,
+                                weight: "bold"
+                            }
+                        },
+                        ticks: {
+                            color: 'black',
+                            precision: 2
+                        },
+                        grid: {
+                            color: 'pink'
+                        }
+                    },
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: "PL Data",
+                        font: {
+                            family: "Arial",
+                            size: 18,
+                            weight: "bold"
+                        }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'chartArea',
+                        align: 'start',
+                        labels: {
+                            font: {
+                                family: "Arial",
+                                size: 11,
+                                weight: "bold"
+                            },
+                            usePointStyle: true,
+                            bxHeight: 8
+                        }
+                    },
+                    zoom: {
+                        pan: {
+                            enabled: true,
+                            mode: 'xy',
+                            modifierKey: 'ctrl',
+                        },
+                        zoom: {
+                            mode: 'xy',
+                            calseMode: 'xy',
+                            wheel: {
+                                enabled: true,
+                            },
+                        }
+                    }
+                },
+                animation: {
+                    duration: 2000,
+                    onProgress: function(context) {
+                        if (initProgress && context.initial) {
+                            initProgress.value = context.currentStep / context.numSteps;
+                        }
+                        if (progress && !context.initial) {
+                            progress.value = context.currentStep / context.numSteps;
+                        }
+                    },
+                    onComplete:  function(context) {
+                        if (context.initial) {
+                            console.log(`Initial animation finished`);
+                        }
+                    }
+                },
+            },
+            plugins: [verticalHoverLine, legendBorder]
+        };
+        
+        if (type === 'plqy') {
+            config.options.plugins.title.text = 'PLQY Data';
+            config.options.scales.y.title.text = 'Reference Data';
+        } else if (type === 'uvvis') {
+            config.options.plugins.title.text = 'UVVIS Data';
+            config.options.scales.y.title.text = 'Absorbance';
+            config.options.plugins.legend.labels.filter = (legendItem) => !legendItem.text.includes('Fitted Line') && !legendItem.text.includes('X-intercept');
+        } else if (type === 'ac3') {
+            config.options.plugins.title.text = 'AC3 Data';
+            config.options.scales.x.title.text = 'eV';
+            config.options.scales.y.title.text = 'Yield';
+            config.options.plugins.legend.labels.filter = (legendItem) => !legendItem.text.includes('Fitted Line') && !legendItem.text.includes('Baseline');
+        } else if (type === 'ellipsometer') {
+            config.options.plugins.title.text = 'Ellipsometer Data';
+            config.options.scales.y.title.text = 'Refractive index';
+            config.options.scales.y2 = {
+                type: 'linear'
+                display: true,
+                position: 'right',
+                title: {
+                    display: true,
+                    text: 'Extinction coefficient',
+                    font: {
+                        family: "Arial",
+                        size: 15,
+                        weight: "bold"
+                    }
+                },
+                grid: {
+                    drawOnChartArea: false
+                }
+            };
+        }
+        
+        const chart = new Chart(ctx, config);
+        chartMap[selectedType] = chart;
+        console.log(`Chart created for type:`, selectedType, chartMap[selectedType]);
+        
+        setAxisTitle(chart, type);
+    }
+    
+    function updateQueryStringParameter(key, value) {
+        var url = new URL(window.location.href);
+        url.searchParams.set(key, value);
+        window.location.href = url.toString();
+    }
+    
+    function setAxisTitle(myChart, type) {
+        const chartInstance = myChart;
+        if (!chartInstance) {
+            console.warn(`Chart instance not found for type: ${type}`);
+            return;
+        }
+        const xTitleElement = document.getElementById(type + 'XTitle');
+        const yTitleElement = document.getElementById(type + 'YTitle');
+        const y2TitleElement = document.getElementById(type + 'Y2Title');
+        
+        if (xTitleElement) {
+            xTitleElement.innerText = chartInstance.config.options.scales.x.title.text;
+        } else {
+            console.warn(`X Title element not found for type: ${type}`);
+        }
+        
+        if (yTitleElement) {
+            yTitleElement.innerText = chartInstance.config.options.scales.y.title.text;
+        } else {
+            console.warn(`Y Title element not found for type: ${type}`);
+        }
+        
+        if (chartInstance.config.options.scales.y2) {
+            if (y2TitleElement) {
+                y2TitleElement.innerText = chartInstance.config.options.scales.y2.title.text;
+                y2TitleElement.style.display = 'inline';
+            } else {
+                console.warn(`Y2 Title element not found for type: ${type}`);
+            }
+        } else {
+            if (y2TitleElement) {
+                y2TitleElement.innerText = '';
+                y2TitleElement.style.display = 'none';
+            }
+        }
+    }    
+    
+    function updateChartColor(colors, myChart, material_ids) {
+        const colorMap = generateColorMap(material_ids, colors);
+        myChart.data.datasets.forEach((dataset) => {
+            const materialId = dataset.material_id;
+            const color = colorMap[materialId];
+            if (color) {
+                dataset.borderColor = color;
+                dataset.backgroundColor = color;
+            }
+        });
+        myChart.update();
+        
+        document.querySelectorAll('.material-toggle-button').forEach(buttion => {
+            const materialId = parseInt(button.dataset.materialId);
+            const color = colorMap[materialId];
+            if (color) {
+                button.style.backgroundColor = color;
+            }
+        });
+    }
+    
+    document.addEventListener('DOMContentLoaded', function () {
+        const cmapSelect = document.getElementById('cmapSelect');
+        function populateCmapSelect(data) {
+            for (const cmap in data) {
+                const option = document.createElement('option');
+                option.value = cmap;
+                option.textContent = cmap;
+                cmapSelect.appendChild(option);
+            }
+        }
+        
+        // 초기 차트 생성 및 컬러맵 설정
+        populateCmapSelect(cmapList);  
+        createChart(selectedType, data);  
+        console.log(`Chart Initialized in chartMap:`, chartMap[selectedType]);
+        cmapSelect.value = "ppt";  
+        updateChartColors(cmapList[cmapSelect.value], chartMap[selectedType], materialsIds);
+        
+        cmapSelect.addEventListener('change', function() {
+            const selectedCmap = cmapSelect.value;
+            updateChartColors(cmapList[cmapSelect.value], chartMap[selectedType], materialsIds);
+        });
+        
+        const resetBtn = document.getElementById(`reset${selectedType}Button`)
+        resetBtn.style.display = 'none';
+        const downloadCSVBtn = document.getElementById(`download${selectedType}CsvBtn`)
+        downloadCSVBtn.style.display = 'none';
+        
+        document.getElementById(`update${selectedType}Button`).onclick = function() {
+            handleApplyScale(chartMap[selectedType], selectedType)
+        };
+        document.getElementById(`legend${selectedType}Position`).addEventListener('change', function() {
+            changeLegendPosition(chartMap[selectedType], this.value)
+        });
+        
+        document.querySelectorAll('.material-toggle-button').forEach(button => {
+            const materialId = button.dataset.materialId;
+            button.addEventListener('click', function() {
+                const currentState = this.dataset.state;
+                
+                if (currentState === 'on') {
+                    this.textContent = 'OFF';
+                    this.style.opacity = 0.6;
+                    this.dataset.state = 'off'
+                    removeDatasetFromChart(materialId);
+                } else {
+                    this.textContent = 'ON';
+                    this.style.opacity = 0.8;
+                    this.dataset.state = 'on'
+                    addDatasetToChart(materialId);
+                }
+            });
+        });
+    })
+    
+    function changeMeasurementType() {
+        const selectedType = document.getElementById('measurementType').value;
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('type', selectedType);
+        window.location.href = currentUrl.toString();
+    }
+
+</script>
+{% endblock extra_dvmt_js %}

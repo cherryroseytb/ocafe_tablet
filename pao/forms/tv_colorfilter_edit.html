@@ -1,0 +1,57 @@
+{% load static django_bootstrap5 django_htmx %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Color Filter 편집</title>
+    <script src="{% static 'vendor/htmx/htmx.min.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/5.3.3/css/bootstrap.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/1.11.3/font/bootstrap-icons.css' %}">
+</head>    
+<body>
+    <div class="container mt-4">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        <h4>Color Filter 편집</h4>
+    
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label for="label" class="form-label">Label (예: CL18-A)</label>
+            <input type="text" class="form-control" id="label" name="label" required>
+          </div>
+          <div class="mb-3">
+            <label for="csv_file" class="form-label">CSV 또는 TXT 파일 업로드</label>
+            <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv,.txt" required>
+          </div>
+          <button type="submit" class="btn btn-primary">저장</button>
+        </form>
+    
+        <h5>현재 저장된 Color Filters</h5>
+        <ul class="list-group">
+		  {% for cf in colorfilters %}
+		  <li class="list-group-item d-flex justify-content-between align-items-center">
+		    {# ✨ 변경: username 추가 #}
+		    {{ cf.label }} ({{ cf.created_user.full_name }})
+		    
+		    {# ✨ 변경: is_staff 조건 추가 #}
+		    {% if cf.created_user == request.user or request.user.is_staff %}
+		    <form method="post" action="?delete={{ cf.id }}">
+		      {% csrf_token %}
+		      <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+		    </form>
+		    {% endif %}
+		  </li>
+		  {% empty %}
+		  <li class="list-group-item">데이터 없음</li>
+		  {% endfor %}
+		</ul>
+    </div> 
+</body>
+</html>

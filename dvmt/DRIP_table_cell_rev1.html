@@ -1,0 +1,9 @@
+{% if value is not None %}
+    {% if type == 'ellipsometer' %}
+      <td>{% if value %}raw data{% else %}X{% endif %}</td>
+    {% else %}
+      <td>{{ value }}</td>
+    {% endif %}
+{% else %}
+    <td></td>
+{% endif %}

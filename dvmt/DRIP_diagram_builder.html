@@ -1,0 +1,1344 @@
+{% load static django_bootstrap5 django_htmx %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Diagram Builder</title>
+    
+    <link rel="icon" href="data:,">
+    
+    <!-- Coloris CSS -->
+    <link rel="stylesheet" href="{% static 'vendor/coloris/0.25.0/coloris.min.css' %}">
+    
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/5.3.3/css/bootstrap.min.css' %}">
+    
+    <!-- Tabulator CSS -->
+    <link rel="stylesheet" href="{% static 'vendor/tabulator/css/tabulator_bootstrap5.min.css' %}">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="{% static 'vendor/webfonts/all.min.css' %}">
+    
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        
+        .diagram-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .controls-section {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .table-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .table-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        #materials-table, #layers-table {
+            flex: 1;
+        }
+        
+        .btn-electrode {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .layer-name-cell {
+            cursor: pointer;
+        }
+        
+        .layer-name-cell:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .delete-btn {
+            cursor: pointer;
+            color: #e74c3c;
+        }
+        
+        .delete-btn:hover {
+            color: #c0392b;
+        }
+        
+        .save-controls {
+            margin-top: 15px;
+        }
+        
+        .col-lg-6:last-child .table-section {
+			height: 650px;
+        }
+        
+        .clr-field {
+			width: 40px !important;
+			height: 30px !important;
+			display: inline-block;
+			margin: 0 !important;
+        }
+        
+        .clr-field button {
+			width: 40px !important;
+			height: 30px !important;
+			margin: 0 !important;
+			padding: 0 !important;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container-fluid" style="background: white; padding: 15px 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="mb-0"><i class="fas fa-layer-group"></i> Energy Diagram Builder</h2>
+            <a class="btn btn-outline-secondary" href="{% url 'dvmt:meas_list' %}">
+                <i class="fas fa-arrow-left"></i> Back to Measurement List
+            </a>
+        </div>
+        
+        <!-- 상단: 에너지 다이어그램 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="diagram-section">
+                    <div id="energy-diagram" style="height: 600px;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 하단: 좌측 Search + 우측 Layer -->
+        <div class="row">
+            <!-- 좌측: 재료 검색 및 리스트 -->
+            <div class="col-lg-6 col-md-12 mb-3">
+                <div class="controls-section">
+                    <div class="row g-2 align-items-end">
+                        <!-- mat_type 필터 -->
+                        <div class="col-md-3">
+                            <label class="form-label small"><i class="fas fa-filter"></i> Material Type</label>
+                            <select id="mat-type-filter" class="form-select form-select-sm">
+                                <option value="">All Types</option>
+                                {% for mat_type in mat_types %}
+                                <option value="{{ mat_type }}">{{ mat_type }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- 검색창 -->
+                        <div class="col-md-5">
+                            <label class="form-label small"><i class="fas fa-search"></i> Search</label>
+                            <input type="text" id="material-search" class="form-control form-control-sm" placeholder="Search materials...">
+                        </div>
+                        
+                        <!-- 전극 프리셋 버튼 -->
+                        <div class="col-md-4">
+                            <label class="form-label small"><i class="fas fa-plus-circle"></i> Add Electrode</label>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-primary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                                    Electrode Presets
+                                </button>
+                                <ul class="dropdown-menu">
+                                    {% for name, data in electrode_presets.items %}
+                                    <li>
+                                        <a class="dropdown-item electrode-preset" 
+                                           data-name="{{ name }}" 
+                                           data-wf="{{ data.work_function }}" 
+                                           data-color="{{ data.color }}" 
+                                           data-category="{{ data.category }}"
+                                           href="#">
+                                            {{ name }} ({{ data.work_function }} eV)
+                                        </a>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 커스텀 재료 추가 버튼 -->
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <button class="btn btn-sm btn-outline-secondary" id="add-custom-material">
+                                <i class="fas fa-plus"></i> Add Custom Material
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-section">
+                    <div class="table-title">
+                        <i class="fas fa-database"></i> Available Materials
+                        <span class="badge bg-secondary" id="materials-count">0</span>
+                    </div>
+                    <div id="materials-table"></div>
+                </div>
+            </div>
+            
+			<!-- 우측 레이어 구성 부분 -->
+			<div class="col-lg-6 col-md-12 mb-3">
+			    <div class="table-section">
+			        <div class="table-title">
+			            <i class="fas fa-layer-group"></i> Layer Configuration
+			            <span class="badge bg-primary" id="layers-count">0</span>
+			            <button class="btn btn-sm btn-warning float-end" id="draw-diagram">
+			                <i class="fas fa-chart-line"></i> Draw Diagram
+			            </button>
+			        </div>
+			        
+			        <!-- 현재 다이어그램 정보 표시 추가 -->
+			        <div id="current-diagram-info" style="display: none; background-color: #e3f2fd; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+			            <small>
+			                <i class="fas fa-info-circle"></i> 
+			                <strong>Loaded:</strong> <span id="loaded-diagram-name">-</span>
+			                <span class="text-muted">(ID: <span id="loaded-diagram-id">-</span>)</span>
+			            </small>
+			        </div>
+			        
+			        <div id="layers-table"></div>
+			        
+			        <!-- 저장/불러오기 컨트롤 수정 -->
+			        <div class="save-controls">
+			            <div class="row g-2">
+			                <div class="col-md-5">
+			                    <input type="text" id="diagram-name" class="form-control form-control-sm" placeholder="Diagram name...">
+			                </div>
+			                <div class="col-md-2">
+			                    <button class="btn btn-sm btn-success w-100" id="save-diagram" title="Save (Update if loaded)">
+			                        <i class="fas fa-save"></i> Save
+			                    </button>
+			                </div>
+			                <div class="col-md-3">
+			                    <button class="btn btn-sm btn-outline-success w-100" id="save-as-new-diagram" title="Always save as new">
+			                        <i class="fas fa-plus-circle"></i> Save As New
+			                    </button>
+			                </div>
+			                <div class="col-md-2">
+			                    <button class="btn btn-sm btn-info w-100" data-bs-toggle="modal" data-bs-target="#loadModal">
+			                        <i class="fas fa-folder-open"></i> Load
+			                    </button>
+			                </div>
+			            </div>
+			        </div>
+			    </div>
+			</div>
+		</div>
+	</div>
+    
+    <!-- Load Diagram Modal -->
+    <div class="modal fade" id="loadModal" tabindex="-1">
+	    <div class="modal-dialog modal-lg">
+	        <div class="modal-content">
+	            <div class="modal-header">
+	                <h5 class="modal-title"><i class="fas fa-folder-open"></i> Load Saved Diagram</h5>
+	                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+	            </div>
+	            <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+	                <!-- 검색창 추가! -->
+	                <div class="mb-3">
+	                    <input type="text" 
+	                           id="diagram-search" 
+	                           class="form-control" 
+	                           placeholder="🔍 Search by diagram name...">
+	                </div>
+	                
+	                <div id="saved-diagrams-list">
+	                    <!-- 동적으로 채워짐 -->
+	                </div>
+	            </div>
+	        </div>
+	    </div>
+	</div>
+    
+    <!-- Custom Material Modal -->
+    <div class="modal fade" id="customMaterialModal" tabindex="-1">
+	    <div class="modal-dialog">
+	        <div class="modal-content">
+	            <div class="modal-header">
+	                <h5 class="modal-title"><i class="fas fa-plus"></i> Add Custom Material</h5>
+	                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+	            </div>
+	            <div class="modal-body">
+	                <form id="custom-material-form">
+	                    <div class="mb-3">
+	                        <label class="form-label">Material Name <span class="text-danger">*</span></label>
+	                        <input type="text" class="form-control" id="custom-mat-name" required placeholder="e.g., My Material">
+	                    </div>
+	                    <div class="mb-3">
+	                        <label class="form-label">HOMO (eV) <span class="text-danger">*</span></label>
+	                        <input type="number" step="0.01" class="form-control" id="custom-homo" required placeholder="e.g., -5.5">
+	                        <small class="text-muted">Enter as negative (e.g., -5.5) or positive (will be converted)</small>
+	                    </div>
+	                    <div class="mb-3">
+	                        <label class="form-label">LUMO (eV) <span class="text-danger">*</span></label>
+	                        <input type="number" step="0.01" class="form-control" id="custom-lumo" required placeholder="e.g., -2.5">
+	                        <small class="text-muted">Enter as negative (e.g., -2.5) or positive (will be converted)</small>
+	                    </div>
+	                    <div class="mb-3">
+	                        <label class="form-label">Color</label>
+	                        <input type="text" class="form-control coloris" id="custom-color" value="#999999" data-coloris>
+	                    </div>
+	                </form>
+	            </div>
+	            <div class="modal-footer">
+	                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+	                <button type="button" class="btn btn-primary" id="add-custom-material-btn">Add</button>
+	            </div>
+	        </div>
+	    </div>
+	</div>
+    
+    <!-- 1. Bootstrap -->
+	<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+	
+	<!-- 2. Plotly -->
+	<script src="{% static 'js/plotly-2.26.0.min.js' %}"></script>
+	
+	<!-- 3. Tabulator -->
+	<script src="{% static 'js/tabulator.min.js' %}"></script>
+	
+	<!-- 4. Coloris (Tabulator 다음에!) -->
+	<script src="{% static 'vendor/coloris/0.25.0/coloris.min.js' %}"></script>
+	
+	<script>
+	    const csrftoken = '{{ csrf_token }}';
+	    const CHART_COLORS = {{ chart_colors|safe }};
+	    
+	    // Hex를 RGBA로 변환하는 함수
+		function hexToRgba(hex, alpha = 0.8) {
+		    console.log('Converting hex:', hex);
+		    
+		    // # 제거
+		    hex = hex.replace('#', '');
+		    
+		    // RGB 값 추출
+		    let r, g, b;
+		    if (hex.length === 3) {
+		        r = parseInt(hex[0] + hex[0], 16);
+		        g = parseInt(hex[1] + hex[1], 16);
+		        b = parseInt(hex[2] + hex[2], 16);
+		    } else if (hex.length === 6) {
+		        r = parseInt(hex.substring(0, 2), 16);
+		        g = parseInt(hex.substring(2, 4), 16);
+		        b = parseInt(hex.substring(4, 6), 16);
+		    } else {
+		        console.error('Invalid hex color:', hex);
+		        r = 153; g = 153; b = 153;
+		    }
+		    
+		    // 중요! 백틱(`)을 사용해야 함 - 작은따옴표(')가 아님
+		    const rgba = `rgba(${r}, ${g}, ${b}, ${alpha})`;  // ← 이 줄 확인!
+		    console.log('r:', r, 'g:', g, 'b:', b, 'alpha:', alpha);
+		    console.log('Converted to:', rgba);
+		    return rgba;
+		}
+		
+		const CHART_COLORS = CHART_COLORS_HEX.map(function(color) {
+		    return hexToRgba(color, 0.5);
+		});
+	    
+	    let materialsTable;
+	    let layersTable;
+	    let layerCounter = 1;
+	    let currentDiagramId = null;
+	    let originalDiagramName = null;
+	    let allDiagrams = [];
+
+	    
+	    // DOMContentLoaded 안에서 초기화
+	    document.addEventListener('DOMContentLoaded', function() {
+	        // Coloris가 로드되었는지 확인
+	        console.log('Coloris loaded?', typeof Coloris);
+	        
+	        // Coloris 초기화 (init() 제거)
+	        Coloris({
+	            el: '.coloris',
+	            theme: 'pill',
+	            themeMode: 'light',
+	            swatches: CHART_COLORS,
+	            alpha: true,
+	            format: 'hex',
+	            closeButton: true,
+	            clearButton: false
+	        });
+	        
+	        initializeTables();
+	        loadMaterials();
+	        setupEventListeners();
+	        
+	        showEmptyDiagram();
+	    });
+	    
+	    function showEmptyDiagram() {
+		    Plotly.newPlot('energy-diagram', [], {
+		        title: { text: '<b>Energy Level Diagram</b>', font: { size: 20 } },
+		        xaxis: { visible: false },
+		        yaxis: { 
+		            title: { text: '<b>Energy Level (eV)</b>', font: { size: 16 } },
+		            range: [-12, 0.5]
+		        },
+		        annotations: [{
+		            text: 'Add materials and click "Draw Diagram"',
+		            xref: 'paper',
+		            yref: 'paper',
+		            x: 0.5,
+		            y: 0.5,
+		            showarrow: false,
+		            font: { size: 20, color: '#999' }
+		        }],
+		        plot_bgcolor: 'white',
+		        paper_bgcolor: 'white'
+		    });
+		}
+    
+        
+        // Tabulator 초기화
+        function initializeTables() {
+            // 좌측 재료 테이블
+            materialsTable = new Tabulator("#materials-table", {
+			    layout: "fitColumns",
+			    height: "100%",
+			    placeholder: "No materials found",
+			    movableRows: false,  // ← true를 false로 변경!
+			    renderVertical: "basic",
+			    rowFormatter: function(row) {
+			        row.getElement().style.cursor = "pointer";  // ← "grab"을 "pointer"로 변경
+			        row.getElement().style.backgroundColor = "white";
+			    },
+			    columns: [
+                    {title: "No.", field: "no", width: 60, hozAlign: "center"},
+                    {title: "Material", field: "mat_name", minWidth: 150},
+                    {title: "Type", field: "mat_type", width: 100},
+                    {title: "HOMO", field: "homo", width: 80, hozAlign: "center", formatter: function(cell) {
+                        const val = cell.getValue();
+                        return val !== null ? val.toFixed(2) : '-';
+                    }},
+                    {title: "LUMO", field: "lumo", width: 80, hozAlign: "center", formatter: function(cell) {
+                        const val = cell.getValue();
+                        return val !== null ? val.toFixed(2) : '-';
+                    }},
+                    {title: "Eg", field: "bandgap", width: 70, hozAlign: "center", formatter: function(cell) {
+                        const val = cell.getValue();
+                        return val !== null ? val.toFixed(2) : '-';
+                    }},
+                    {
+			            title: "WF",  // 추가!
+			            field: "work_function", 
+			            width: 80,  // 너비 설정
+			            hozAlign: "center", 
+			            formatter: function(cell) {
+			                const val = cell.getValue();
+			                return val !== null ? val.toFixed(2) : '-';
+			            }
+			        }
+                ]
+            });
+            
+            // 우측 레이어 테이블
+            layersTable = new Tabulator("#layers-table", {
+			    layout: "fitColumns",
+			    height: "calc(100% - 80px)",
+			    placeholder: "Drag materials here to build diagram",
+			    movableRows: true,
+			    headerSort: false,
+			    renderVertical: "basic",  // 줄무늬 제거!
+			    rowFormatter: function(row) {
+			        const data = row.getData();
+			        const layerName = (data.layer_name || '').toLowerCase();
+			        
+			        // 기본 흰색
+			        let bgColor = 'white';
+			        
+			        // EML 체크
+			        if (layerName.includes('eml')) {
+			            if (/\bred\b|\br\b/i.test(layerName)) {
+			                bgColor = 'rgba(255, 0, 0, 0.08)';
+			            }
+			            else if (/\bgreen\b|\bg\b/i.test(layerName)) {
+			                bgColor = 'rgba(0, 255, 0, 0.08)';
+			            }
+			            else if (/\bblue\b|\bb\b/i.test(layerName)) {
+			                bgColor = 'rgba(0, 0, 255, 0.08)';
+			            }
+			            else if (/\byellow\b|\byg\b/i.test(layerName)) {
+			                bgColor = 'rgba(255, 255, 0, 0.12)';
+			            }
+			        }
+			        
+			        row.getElement().style.backgroundColor = bgColor;
+			    },
+			    columns: [
+			        {
+					    title: "Layer Name", 
+					    field: "layer_name", 
+					    editor: "input",
+					    cellEdited: function(cell) {
+					        // reformat() 대신 rowFormatter만 다시 실행
+					        const row = cell.getRow();
+					        const data = row.getData();
+					        const layerName = (data.layer_name || '').toLowerCase();
+					        
+					        // EML 배경색만 업데이트 (color 셀은 건드리지 않음)
+					        let bgColor = 'white';
+					        if (layerName.includes('eml')) {
+					            if (/\bred\b|\br\b/i.test(layerName)) {
+					                bgColor = 'rgba(255, 0, 0, 0.08)';
+					            }
+					            else if (/\bgreen\b|\bg\b/i.test(layerName)) {
+					                bgColor = 'rgba(0, 255, 0, 0.08)';
+					            }
+					            else if (/\bblue\b|\bb\b/i.test(layerName)) {
+					                bgColor = 'rgba(0, 0, 255, 0.08)';
+					            }
+					            else if (/\byellow\b|\byg\b/i.test(layerName)) {
+					                bgColor = 'rgba(255, 255, 0, 0.12)';
+					            }
+					        }
+					        row.getElement().style.backgroundColor = bgColor;
+					    },
+					    minWidth: 120,
+					    headerSort: false
+					},
+                    {
+					    title: "Material", 
+					    field: "mat_name", 
+					    minWidth: 120,
+					    formatter: function(cell) {
+					        const data = cell.getRow().getData();
+					        const matName = data.mat_name || '-';
+					        const massCode = data.mass_code || '';
+					        
+					        // mass_code가 있으면 함께 표시
+					        if (massCode) {
+					            return `${matName} (${massCode})`;
+					        }
+					        return matName;
+					    },
+					    headerSort: false
+					},
+                    {title: "HOMO", field: "homo", width: 80, hozAlign: "center", formatter: function(cell) {
+                        const val = cell.getValue();
+                        return val !== null ? val.toFixed(2) : '-';
+                    }},
+                    {title: "LUMO", field: "lumo", width: 80, hozAlign: "center", formatter: function(cell) {
+                        const val = cell.getValue();
+                        return val !== null ? val.toFixed(2) : '-';
+                    }},
+                    {title: "WF", field: "work_function", width: 70, hozAlign: "center", formatter: function(cell) {
+                        const val = cell.getValue();
+                        return val !== null ? val.toFixed(2) : '-';
+                    }},
+                    {
+					    title: "Color",
+					    field: "color", 
+					    width: 50,
+					    hozAlign: "center",
+					    formatter: function(cell) {
+					        const color = cell.getValue() || 'rgba(153, 153, 153, 0.8)';
+					        const row = cell.getRow();
+					        const uniqueId = 'color-input-' + row.getData().mat_name + '-' + Date.now();  // 고유 ID 생성
+					        
+					        return `<input type="text" 
+					                       id="${uniqueId}"
+					                       class="coloris layer-color-input" 
+					                       value="${color}" 
+					                       data-coloris
+					                       style="width: 40px; height: 30px; padding: 0; border: 2px solid #ddd; cursor: pointer; color: transparent; text-shadow: none;">`;
+					    },
+					    headerSort: false
+					},
+                    {
+                        title: "Del", 
+                        width: 40, 
+                        hozAlign: "center",
+                        formatter: function() {
+                            return '<i class="fas fa-times delete-btn"></i>';
+                        },
+                        cellClick: function(e, cell) {
+                            cell.getRow().delete();
+                            updateLayersCount();
+                        }
+                    }
+                ]
+            });
+            
+            layersTable.on("renderComplete", function() {
+			    const rows = layersTable.getRows();
+			    
+			    rows.forEach((row, index) => {
+			        const colorCell = row.getCell('color');
+			        const input = colorCell.getElement().querySelector('.layer-color-input');
+			        
+			        if (input && !input.dataset.colorisInit) {
+			            console.log(`Initializing coloris for row ${index}, mat_name:`, row.getData().mat_name);
+			            
+			            Coloris({
+			                el: input,
+			                theme: 'pill',
+			                themeMode: 'light',
+			                swatches: CHART_COLORS,
+			                alpha: true,
+			                format: 'rgb'
+			            });
+			            
+			            input.addEventListener('change', function(e) {
+			                const newColor = this.value;
+			                console.log(`Row ${index} color changed to:`, newColor);
+			                
+			                // 데이터 직접 수정 (리렌더링 없음)
+						    const data = row.getData();
+						    data.color = newColor;
+			                
+			                console.log('Updated row data:', row.getData());
+			            });
+			            
+			            input.dataset.colorisInit = 'true';
+			        }
+			    });
+			});
+			
+			layersTable.on("rowAdded", function(row) {
+			    setTimeout(() => {
+			        const colorCell = row.getCell('color');
+			        const input = colorCell.getElement().querySelector('.layer-color-input');
+			        
+			        if (input && !input.dataset.colorisInit) {
+			            Coloris({
+			                el: input,
+			                theme: 'pill',
+			                themeMode: 'light',
+			                swatches: CHART_COLORS,
+			                alpha: true,
+			                format: 'rgb'
+			            });
+			            
+			            input.addEventListener('change', function(e) {
+			                const newColor = this.value;
+			                console.log('New row color changed to:', newColor);
+			                
+			                // 데이터 직접 수정 (리렌더링 없음)
+						    const data = row.getData();
+						    data.color = newColor;
+			            });
+			            
+			            input.dataset.colorisInit = 'true';
+			        }
+			    }, 100);
+			});
+            
+            layersTable.on("rowMoved", function(row) {
+                // 레이어 순서 변경 시 다이어그램 업데이트
+            });
+            
+            // 재료 테이블에서 드래그 시작
+            materialsTable.on("rowClick", function(e, row) {
+                const material = row.getData();
+                addMaterialToLayers(material);
+            });
+        }
+        
+        function initializeLayerColorPickers() {
+		    document.querySelectorAll('.layer-color-input').forEach(input => {
+		        // 이미 초기화된 경우 스킵
+		        if (input.dataset.colorisInit) return;
+		        
+		        Coloris({
+		            el: input,
+		            theme: 'pill',
+		            themeMode: 'light',
+		            swatches: CHART_COLORS,
+		            alpha: true,
+		            format: 'hex'
+		        });
+		        
+		        // 색상 변경 시 Tabulator 셀 값 업데이트
+		        input.addEventListener('change', function() {
+		            const rowId = this.dataset.rowId;
+		            const row = layersTable.getRows()[rowId];
+		            if (row) {
+		                row.update({ color: this.value });
+		            }
+		        });
+		        
+		        input.dataset.colorisInit = 'true';  // 중복 초기화 방지
+		    });
+		}
+        
+        // 재료를 레이어 테이블에 추가
+        function addMaterialToLayers(material) {
+		    const layerData = {
+		        id: material.id,
+		        homo_fitting_id: material.homo_fitting_id,
+		        bandgap_fitting_id: material.bandgap_fitting_id,
+		        layer_name: `Layer ${layerCounter}`,
+		        mat_name: material.mat_name,
+		        homo: material.homo,
+		        lumo: material.lumo,
+		        work_function: material.work_function || null,
+		        bandgap: material.bandgap,
+		        color: material.color || 'rgba(200,200,200,0.5)',
+		        is_custom: material.is_custom || false
+		    };
+		    
+		    layersTable.addRow(layerData);
+		    layerCounter++;
+		    updateLayersCount();
+		}
+        
+        // 재료 검색 및 로드
+        function loadMaterials() {
+            const search = document.getElementById('material-search').value;
+            const matType = document.getElementById('mat-type-filter').value;
+            
+            fetch(`/dvmt/api/search-materials/?search=${search}&mat_type=${matType}`)
+                .then(response => response.json())
+                .then(data => {
+                    materialsTable.setData(data.materials);
+                    document.getElementById('materials-count').textContent = data.materials.length;
+                })
+                .catch(error => console.error('Error loading materials:', error));
+        }
+        
+        // 이벤트 리스너 설정
+        function setupEventListeners() {
+            // 검색 및 필터
+            document.getElementById('material-search').addEventListener('input', loadMaterials);
+            document.getElementById('mat-type-filter').addEventListener('change', loadMaterials);
+            
+            document.getElementById('draw-diagram').addEventListener('click', function() {
+				updateDiagram();
+            });
+            
+            // Save 버튼 (업데이트 또는 새로 저장)
+		    document.getElementById('save-diagram').addEventListener('click', function() {
+		        saveDiagram(false);  // saveAsNew = false
+		    });
+		    
+		    // Save As New 버튼 (항상 새로 저장)
+		    document.getElementById('save-as-new-diagram').addEventListener('click', function() {
+		        saveDiagram(true);  // saveAsNew = true
+		    });
+            
+            // 검색 이벤트 리스너 추가 (setupEventListeners에)
+			document.getElementById('diagram-search').addEventListener('input', function(e) {
+			    const searchTerm = e.target.value.toLowerCase();
+			    
+			    if (searchTerm === '') {
+			        displayDiagrams(allDiagrams);
+			    } else {
+			        const filtered = allDiagrams.filter(diagram => 
+			            diagram.name.toLowerCase().includes(searchTerm)
+			        );
+			        displayDiagrams(filtered);
+			    }
+			});
+            
+            // 전극 프리셋 추가
+			document.querySelectorAll('.electrode-preset').forEach(item => {
+			    item.addEventListener('click', function(e) {
+			        e.preventDefault();
+			        const electrode = {
+			            id: 'electrode_' + Date.now(),  // 고유 ID
+			            homo_fitting_id: null,
+			            bandgap_fitting_id: null,
+			            no: materialsTable.getRows().length + 1,
+			            mat_name: this.dataset.name,
+			            mat_type: 'Electrode',
+			            homo: null,
+			            lumo: null,
+			            work_function: parseFloat(this.dataset.wf),
+			            bandgap: null,
+			            color: this.dataset.color,
+			            is_custom: true
+			        };
+			        
+			        console.log('Adding electrode to list:', electrode);
+			        
+			        // 왼쪽 테이블에 추가
+			        materialsTable.addRow(electrode);
+			        
+			        // 카운트 업데이트
+			        document.getElementById('materials-count').textContent = materialsTable.getRows().length;
+			    });
+			});
+            
+            // 커스텀 재료 추가
+            document.getElementById('add-custom-material').addEventListener('click', function() {
+                const modal = new bootstrap.Modal(document.getElementById('customMaterialModal'));
+                modal.show();
+            });
+            
+            document.getElementById('add-custom-material-btn').addEventListener('click', function() {
+                const name = document.getElementById('custom-mat-name').value;
+                const homo = parseFloat(document.getElementById('custom-homo').value);
+                const lumo = parseFloat(document.getElementById('custom-lumo').value);
+                
+                    // Validation
+			    if (!name) {
+			        alert('Please enter a material name!');
+			        return;
+			    }
+			    
+			    if (isNaN(homo) || isNaN(lumo)) {
+			        alert('Please enter valid HOMO and LUMO values!');
+			        return;
+			    }
+			    
+			    // HOMO는 음수여야 함 (사용자가 양수로 입력할 수 있으니 체크)
+			    const homoValue = homo > 0 ? -homo : homo;
+			    const lumoValue = lumo > 0 ? -lumo : lumo;
+                
+			    const customMaterial = {
+			        id: 'custom_' + Date.now(),  // 고유 ID 생성
+			        homo_fitting_id: null,
+			        bandgap_fitting_id: null,
+			        no: materialsTable.getRows().length + 1,  // 현재 테이블 개수 + 1
+			        mat_name: name,
+			        mat_type: 'Custom',
+			        homo: homoValue,
+			        lumo: lumoValue,
+			        work_function: null,
+			        bandgap: lumoValue - homoValue,
+			        color: document.getElementById('custom-color').value || 'rgba(200,200,200,0.5)',
+			        is_custom: true
+			    };
+			    
+			    console.log('Adding custom material to list:', customMaterial);
+			    
+			    // 왼쪽 테이블에 추가 (오른쪽이 아니라!)
+			    materialsTable.addRow(customMaterial);
+			    
+			    // 카운트 업데이트
+			    document.getElementById('materials-count').textContent = materialsTable.getRows().length;
+			    
+			    // 모달 닫고 폼 리셋
+			    bootstrap.Modal.getInstance(document.getElementById('customMaterialModal')).hide();
+			    document.getElementById('custom-material-form').reset();
+			    
+			    alert('Custom material added to the list! Click it to add to your diagram.');
+			});
+	            
+            // 다이어그램 불러오기 모달 열 때
+            document.getElementById('loadModal').addEventListener('show.bs.modal', loadDiagramsList);
+        }
+        
+        // 레이어 카운트 업데이트
+        function updateLayersCount() {
+            const count = layersTable.getRows().length;
+            document.getElementById('layers-count').textContent = count;
+        }
+        
+        // 다이어그램 업데이트 (Plotly)
+        function updateDiagram() {
+		    const layersData = layersTable.getData();
+		    
+		    if (layersData.length === 0) {
+		        Plotly.newPlot('energy-diagram', [], {
+		            title: { text: '<b>Energy Level Diagram</b>', font: { size: 20 } },
+		            xaxis: { visible: false },
+		            yaxis: { 
+		                title: { text: '<b>Energy Level (eV)</b>', font: { size: 16 } },
+		                range: [-12, 0.5]
+		            },
+		            annotations: [{
+		                text: 'Add materials and click "Draw Diagram"',
+		                xref: 'paper',
+		                yref: 'paper',
+		                x: 0.5,
+		                y: 0.5,
+		                showarrow: false,
+		                font: { size: 20, color: '#999' }
+		            }],
+		            plot_bgcolor: 'white',
+		            paper_bgcolor: 'white'
+		        });
+		        return;
+		    }
+		    
+		    // 인접한 같은 레이어명끼리 그룹핑
+		    const groupedLayers = [];
+		    let currentGroup = null;
+		    
+		    layersData.forEach(item => {
+		        if (currentGroup === null || currentGroup.layer_name !== item.layer_name) {
+		            currentGroup = {
+		                layer_name: item.layer_name,
+		                materials: []
+		            };
+		            groupedLayers.push(currentGroup);
+		        }
+		        currentGroup.materials.push(item);
+		    });
+		    
+		    // Plotly traces 생성
+		    const traces = [];
+		    const annotations = [];
+		    const shapes = [];
+		    const layerWidth = 1.0;
+		    const materialBoxWidth = 0.5;
+		    
+		    groupedLayers.forEach((layerGroup, index) => {
+		        const xCenter = index;
+		        const xStart = xCenter - layerWidth / 2;
+		        const xEnd = xCenter + layerWidth / 2;
+		        
+		        // EML 배경색 체크 및 추가!
+		        const layerNameLower = layerGroup.layer_name.toLowerCase();
+		        let emlBgColor = null;
+		        
+		        if (layerNameLower.includes('eml')) {
+		            if (/\bred\b|\br\b/i.test(layerNameLower)) {
+		                emlBgColor = 'rgba(255, 0, 0, 0.08)';
+		            }
+		            else if (/\bgreen\b|\bg\b/i.test(layerNameLower)) {
+		                emlBgColor = 'rgba(0, 255, 0, 0.08)';
+		            }
+		            else if (/\bblue\b|\bb\b/i.test(layerNameLower)) {
+		                emlBgColor = 'rgba(0, 0, 255, 0.08)';
+		            }
+		            else if (/\byellow\b|\byg\b/i.test(layerNameLower)) {
+		                emlBgColor = 'rgba(255, 255, 0, 0.12)';
+		            }
+		        }
+		        
+		        // EML 배경 그리기
+		        if (emlBgColor) {
+		            traces.push({
+		                x: [xStart, xEnd, xEnd, xStart, xStart],
+		                y: [-10.5, -10.5, 0, 0, -10.5],
+		                fill: 'toself',
+		                fillcolor: emlBgColor,
+		                line: { width: 0 },
+		                showlegend: false,
+		                hoverinfo: 'skip'
+		            });
+		        }
+		        
+		        // 레이어 구분선
+		        if (index < groupedLayers.length - 1) {
+		            shapes.push({
+		                type: 'line',
+		                x0: xEnd,
+		                y0: -11,
+		                x1: xEnd,
+		                y1: 0,
+		                line: {
+		                    color: 'rgba(200, 200, 200, 0.4)',
+		                    width: 1,
+		                    dash: 'solid'
+		                }
+		            });
+		        }
+		        
+		        const numMaterials = layerGroup.materials.length;
+		        
+		        layerGroup.materials.forEach((material, matIndex) => {
+		            let xOffset = 0;
+		            if (numMaterials > 1) {
+		                xOffset = (matIndex - (numMaterials - 1) / 2) * 0.15;
+		            }
+		            
+		            const boxXStart = xCenter - materialBoxWidth / 2 + xOffset;
+		            const boxXEnd = xCenter + materialBoxWidth / 2 + xOffset;
+		            
+		            // null 체크 추가
+		            if (material.work_function !== null && material.work_function !== undefined) {
+		                // 전극 - 선으로 표시
+		                traces.push({
+		                    x: [boxXStart, boxXEnd],
+		                    y: [material.work_function, material.work_function],
+		                    mode: 'lines',
+		                    line: { color: material.color, width: 12 },
+		                    hovertemplate: `<b>${layerGroup.layer_name}</b><br>` +
+		                                  `Material: ${material.mat_name}<br>` +
+		                                  `Work Function: ${material.work_function.toFixed(2)} eV<extra></extra>`,
+		                    showlegend: false
+		                });
+		                
+		                annotations.push({
+		                    x: xCenter,
+		                    y: material.work_function + 0.4,
+		                    text: `<b>${material.work_function.toFixed(2)}</b>`,
+		                    showarrow: false,
+		                    font: { size: 16, color: '#2C3E50', family: 'Arial Black' },
+		                    bgcolor: 'rgba(255,255,255,0.9)',
+		                    borderpad: 5
+		                });
+		            } else if (material.homo !== null && material.homo !== undefined && 
+		                       material.lumo !== null && material.lumo !== undefined) {
+		                // 재료 박스 (HOMO와 LUMO가 모두 있을 때만)
+		                traces.push({
+		                    x: [boxXStart, boxXEnd, boxXEnd, boxXStart, boxXStart],
+		                    y: [material.homo, material.homo, material.lumo, material.lumo, material.homo],
+		                    fill: 'toself',
+		                    fillcolor: material.color,
+		                    line: { color: material.color, width: 3 },
+		                    mode: 'lines',
+		                    hovertemplate: `<b>${layerGroup.layer_name}</b><br>` +
+		                                  `Material: ${material.mat_name}<br>` +
+		                                  `HOMO: ${material.homo.toFixed(2)} eV<br>` +
+		                                  `LUMO: ${material.lumo.toFixed(2)} eV<br>` +
+		                                  `Band Gap: ${(material.lumo - material.homo).toFixed(2)} eV<extra></extra>`,
+		                    showlegend: false
+		                });
+		                
+		                // HOMO 선
+		                traces.push({
+		                    x: [boxXStart, boxXEnd],
+		                    y: [material.homo, material.homo],
+		                    mode: 'lines',
+		                    line: { color: '#E74C3C', width: 4 },
+		                    showlegend: false,
+		                    hoverinfo: 'skip'
+		                });
+		                
+		                // LUMO 선
+		                traces.push({
+		                    x: [boxXStart, boxXEnd],
+		                    y: [material.lumo, material.lumo],
+		                    mode: 'lines',
+		                    line: { color: '#3498DB', width: 4 },
+		                    showlegend: false,
+		                    hoverinfo: 'skip'
+		                });
+		                
+		                // HOMO 값
+		                annotations.push({
+		                    x: boxXStart + materialBoxWidth / 2 + xOffset,
+		                    y: material.homo - 0.4,
+		                    text: `<b>${material.homo.toFixed(2)}</b>`,
+		                    showarrow: false,
+		                    font: { size: 14, color: '#E74C3C', family: 'Courier New', weight: 'bold' },
+		                    bgcolor: 'rgba(255,255,255,0.7)',
+		                    borderpad: 3
+		                });
+		                
+		                // LUMO 값
+		                annotations.push({
+		                    x: boxXStart + materialBoxWidth / 2 + xOffset,
+		                    y: material.lumo + 0.4,
+		                    text: `<b>${material.lumo.toFixed(2)}</b>`,
+		                    showarrow: false,
+		                    font: { size: 14, color: '#3498DB', family: 'Courier New', weight: 'bold' },
+		                    bgcolor: 'rgba(255,255,255,0.7)',
+		                    borderpad: 3
+		                });
+		                
+		                // 재료 이름
+		                if (numMaterials > 1) {
+		                    annotations.push({
+		                        x: boxXStart + materialBoxWidth / 2,
+		                        y: (material.homo + material.lumo) / 2,
+		                        text: `<b>${material.mat_name}</b>`,
+		                        showarrow: false,
+		                        font: { size: 10, color: '#2C3E50' },
+		                        bgcolor: 'rgba(255,255,255,0.85)',
+		                        borderpad: 2
+		                    });
+		                }
+		            } else {
+		                // HOMO 또는 LUMO가 없는 경우 - 경고 표시
+		                console.warn(`Material ${material.mat_name} has incomplete data:`, material);
+		            }
+		        });
+		        
+		        // 레이어 이름
+		        let layerLabel = `<b>${layerGroup.layer_name}</b>`;
+		        if (numMaterials === 1) {
+		            layerLabel += `<br><span style="font-size:12px">${layerGroup.materials[0].mat_name}</span>`;
+		        } else {
+		            layerLabel += `<br><span style="font-size:11px">${numMaterials} materials</span>`;
+		        }
+		        
+		        annotations.push({
+		            x: xCenter,
+		            y: -11.5,
+		            text: layerLabel,
+		            showarrow: false,
+		            font: { size: 13 },
+		            xanchor: 'center',
+		            yanchor: 'top'
+		        });
+		    });
+		    
+		    const layout = {
+		        title: { 
+		            text: '<b>Energy Level Diagram</b>', 
+		            font: { size: 20 } 
+		        },
+		        xaxis: { 
+		            showticklabels: false, 
+		            showgrid: false, 
+		            zeroline: false, 
+		            range: [-0.5, groupedLayers.length - 0.5] 
+		        },
+		        yaxis: {
+		            title: { text: '<b>Energy Level (eV)</b>', font: { size: 16 } },
+		            showgrid: true,
+		            gridcolor: 'rgba(0, 0, 0, 0.08)',
+		            zeroline: true,
+		            zerolinecolor: 'black',
+		            zerolinewidth: 2,
+		            range: [-12, 0.5],
+		            tickfont: { size: 13 }
+		        },
+		        shapes: shapes,
+		        annotations: annotations,
+		        hovermode: 'closest',
+		        showlegend: false,
+		        plot_bgcolor: 'white',
+		        paper_bgcolor: 'white',
+		        margin: { l: 80, r: 50, t: 80, b: 150 }
+		    };
+		    
+		    const config = { 
+		        responsive: true, 
+		        displayModeBar: true,
+		        displaylogo: false,
+		        toImageButtonOptions: {
+		            format: 'png',
+		            filename: 'energy_diagram',
+		            height: 800,
+		            width: 1400,
+		            scale: 2
+		        }
+		    };
+		    
+		    Plotly.newPlot('energy-diagram', traces, layout, config);
+		}
+		
+        // 다이어그램 저장
+        function saveDiagram() {
+            const name = document.getElementById('diagram-name').value || 'Untitled Diagram';
+            const layersData = layersTable.getData();
+            
+            if (!name) {
+		        alert('Please enter a diagram name!');
+		        document.getElementById('diagram-name').focus();
+		        return;
+		    }
+		    
+            if (layersData.length === 0) {
+                alert('Please add at least one material to the diagram');
+                return;
+            }
+            
+            // saveAsNew가 false이고 currentDiagramId가 있으면 업데이트
+		    const isUpdate = !saveAsNew && currentDiagramId !== null;
+		    const url = isUpdate ? `/dvmt/api/update-diagram/${currentDiagramId}/` : '/dvmt/api/save-diagram/';
+		    
+		    console.log(isUpdate ? 'Updating diagram:' : 'Saving new diagram:', { name, layers: layersData });
+		    
+		    fetch(url, {
+		        method: 'POST',
+		        headers: {
+		            'Content-Type': 'application/json',
+		            'X-CSRFToken': csrftoken
+		        },
+		        body: JSON.stringify({
+		            name: name,
+		            layers: layersData
+		        })
+		    })
+		    .then(response => {
+		        console.log('Response status:', response.status);
+		        return response.json();
+		    })
+		    .then(data => {
+		        console.log('Response data:', data);
+		        if (data.success) {
+		            alert(isUpdate ? 'Diagram updated successfully!' : 'Diagram saved successfully!');
+		            currentDiagramId = data.diagram_id;  // ID 저장
+		            updateCurrentDiagramInfo(data.diagram_id, name);  // 정보 표시
+		        } else {
+		            alert('Error saving diagram: ' + data.error);
+		        }
+		    })
+		    .catch(error => {
+		        console.error('Error:', error);
+		        alert('Error saving diagram');
+		    });
+		}
+		
+		
+		// 현재 다이어그램 정보 표시 함수
+		function updateCurrentDiagramInfo(diagramId, diagramName) {
+		    const infoDiv = document.getElementById('current-diagram-info');
+		    if (diagramId) {
+		        document.getElementById('loaded-diagram-id').textContent = diagramId;
+		        document.getElementById('loaded-diagram-name').textContent = diagramName;
+		        infoDiv.style.display = 'block';
+		    } else {
+		        infoDiv.style.display = 'none';
+		    }
+		}
+		
+		// 새 다이어그램 시작 함수
+		function startNewDiagram() {
+		    currentDiagramId = null;
+		    document.getElementById('diagram-name').value = '';
+		    layersTable.clearData();
+		    updateLayersCount();
+		    updateCurrentDiagramInfo(null, null);
+		}
+        
+        
+		function loadDiagramsList() {
+		    console.log('Loading diagrams list...');
+		    
+		    fetch('/dvmt/api/list-diagrams/')
+		        .then(response => response.json())
+		        .then(data => {
+		            allDiagrams = data.diagrams;  // 전체 목록 저장
+		            displayDiagrams(allDiagrams);
+		        })
+		        .catch(error => {
+		            console.error('Error loading diagrams list:', error);
+		        });
+		}
+        
+        function displayDiagrams(diagrams) {
+		    const listDiv = document.getElementById('saved-diagrams-list');
+		    listDiv.innerHTML = '';
+		    
+		    if (diagrams.length === 0) {
+		        listDiv.innerHTML = '<p class="text-muted text-center" style="font-size: 16px; padding: 20px;">No diagrams found</p>';
+		        return;
+		    }
+		    
+		    diagrams.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+		    
+		    diagrams.forEach(diagram => {
+		        const createdDate = diagram.created_at ? new Date(diagram.created_at) : null;
+		        const dateStr = createdDate ? 
+		            `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}-${String(createdDate.getDate()).padStart(2, '0')} ${String(createdDate.getHours()).padStart(2, '0')}:${String(createdDate.getMinutes()).padStart(2, '0')}` 
+		            : 'Unknown date';
+		        
+		        const item = document.createElement('div');
+		        item.className = 'list-group-item';
+		        item.style.marginBottom = '10px';
+		        item.innerHTML = `
+		            <div class="d-flex w-100 justify-content-between align-items-start">
+		                <div style="flex: 1; cursor: pointer;" class="diagram-item-content" data-id="${diagram.id}">
+		                    <h5 class="mb-2" style="font-size: 18px; font-weight: bold;">
+		                        <i class="fas fa-file-alt text-primary"></i> ${diagram.name}
+		                    </h5>
+		                    <p class="mb-1" style="font-size: 14px; color: #6c757d;">
+		                        <i class="fas fa-layer-group"></i> ${diagram.layer_count} layer(s)
+		                    </p>
+		                    <small class="text-muted" style="font-size: 13px;">
+		                        <i class="far fa-clock"></i> Created: ${dateStr}
+		                    </small>
+		                </div>
+		                <div class="d-flex align-items-center gap-2">
+		                    <button class="btn btn-sm btn-danger delete-diagram-btn" data-id="${diagram.id}" data-name="${diagram.name}" title="Delete">
+		                        <i class="fas fa-trash"></i>
+		                    </button>
+		                </div>
+		            </div>
+		        `;
+		        
+		        // Load 이벤트
+		        const contentDiv = item.querySelector('.diagram-item-content');
+		        contentDiv.addEventListener('click', function() {
+		            loadDiagram(this.dataset.id);
+		            bootstrap.Modal.getInstance(document.getElementById('loadModal')).hide();
+		        });
+		        
+		        // Hover 효과
+		        contentDiv.addEventListener('mouseenter', function() {
+		            this.style.backgroundColor = '#f8f9fa';
+		        });
+		        contentDiv.addEventListener('mouseleave', function() {
+		            this.style.backgroundColor = '';
+		        });
+		        
+		        // 삭제 버튼
+		        const deleteBtn = item.querySelector('.delete-diagram-btn');
+		        deleteBtn.addEventListener('click', function(e) {
+		            e.stopPropagation();
+		            const diagramId = this.dataset.id;
+		            const diagramName = this.dataset.name;
+		            
+		            if (confirm(`Are you sure you want to delete "${diagramName}"?`)) {
+		                deleteDiagram(diagramId);
+		            }
+		        });
+		        
+		        listDiv.appendChild(item);
+		    });
+		}
+
+		function loadDiagram(diagramId) {
+		    fetch(`/dvmt/api/load-diagram/${diagramId}/`)
+		        .then(response => response.json())
+		        .then(data => {
+		            if (data.success) {
+		                currentDiagramId = diagramId;  // ID 저장
+		                document.getElementById('diagram-name').value = data.name;
+		                layersTable.setData(data.layers);
+		                updateLayersCount();
+		                updateCurrentDiagramInfo(diagramId, data.name);  // 정보 표시
+		            } else {
+		                alert('Error loading diagram: ' + data.error);
+		            }
+		        })
+		        .catch(error => {
+		            console.error('Error:', error);
+		            alert('Error loading diagram');
+		        });
+		}
+		
+		
+		// 다이어그램 삭제 함수 추가
+		function deleteDiagram(diagramId) {
+		    fetch(`/dvmt/api/delete-diagram/${diagramId}/`, {
+		        method: 'POST',
+		        headers: {
+		            'Content-Type': 'application/json',
+		            'X-CSRFToken': csrftoken
+		        }
+		    })
+		    .then(response => response.json())
+		    .then(data => {
+		        if (data.success) {
+		            alert(data.message);
+		            
+		            // 삭제된 다이어그램이 현재 로드된 것이면 초기화
+		            if (currentDiagramId == diagramId) {
+		                startNewDiagram();
+		            }
+		            
+		            // 목록 새로고침
+		            loadDiagramsList();
+		        } else {
+		            alert('Error deleting diagram: ' + data.error);
+		        }
+		    })
+		    .catch(error => {
+		        console.error('Error:', error);
+		        alert('Error deleting diagram');
+		    });
+		}
+    </script>
+</body>
+</html>

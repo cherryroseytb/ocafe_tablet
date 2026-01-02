@@ -1,0 +1,236 @@
+{% extends "dvmt/base.html" %}
+{% load static %}
+{% load django_bootstrap5 %}
+
+{% block page_content %}
+
+<div class="container mt-4">
+    <h2>Measurement Data List</h2>
+    <hr>
+
+    <!-- Search and filter form -->
+    <form method="get" class="row g-3 mb-4">
+        <!-- search bar -->
+        <div class="col-md-5">
+        <input type="text" name="q" class="form-control" placeholder="Search by material name or code" value="{{ search_query }}">
+        </div>
+        <input type="hidden" name="ms_equip" value="{{ request.GET.ms_equip }}">  
+        <input type="hidden" name="mat_type" value="{{ request.GET.mat_type}}">  
+
+        <!-- Equipment filter Dropdown -->
+        <div class="col-md-4">
+            <select name="pd_equip" class="form-select" onchange="this.form.submit()">
+                <option value="">Filter by Equipment</option>
+                {% for equip in pd_equip_data %}
+                    <option value="{{ equip }}" {% if pd_equip == equip %}selected="selected"{% endif %}>{{ equip|upper }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- search and Clear 버튼 추가 -->
+        <div class="col-md-3 d-flex justify-content-between">
+            <button type="submit" class="btn btn-primary">Search</button>
+            <button type="button" id="compareButton" class="btn btn-primary">Compare</button>
+            <a href="{% url 'dvmt:meas_list' %}" class="btn btn-outline-secondary">Clear</a>
+        </div>
+    </form>
+
+    <!-- Material List Table -->
+    {% if no_results %}
+        <p>No data available matching the selected filters.</p>
+    {% else %}
+        <table id="measlist-table" class="table table-striped">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selectAll" value=""> </th>
+                    <th>No.</th>
+                    <th>Material</th>
+                    <th>Type</th>
+                    <th>Measurement Data</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in material_data %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="select-checkbox" name="material_item" value="{{ item.material.id }}">
+                        </td>
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            <a href="{% url 'dvmt:meas_detail' pk=item.material.id %}" class="text-dark">
+                                {{ item.material.mat_name }}
+                                {% if item.material.mass_code %}
+                                    ({{ item.material.mass_code }}){% endif %}
+                            </a>
+                        </td>
+                        <td>
+                            <!-- type filter buttons (Bootstrap button group) -->
+                            <div class="btn-group" role="group">
+                                {% for type in item.mat_types %}
+                                    <button type="button" class="btn btn-sm {% if type in mat_type %}btn-primary{% else %}btn-secondary{% endif %} mat-type-filter me-2" data-type="{{ type }}">{{ type|upper }}</button>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            <!-- Measurement equipment filter button (Bootstrap button group) -->
+                            <div class="btn-group" role="group">
+                                {% for equip in item.equipments %}
+                                    <button type="button" class="btn btn-sm {% if equip|lower in ms_equip %}btn-primary{% else %}btn-secondary{% endif %} filter-btn me-2" data-equip="{{ equip|lower }}">{{ equip|upper }}</button>
+                                {% endfor %}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+        <div class="Pagination d-flex justify-content-center align-items-center">
+            <a class="btn btn-primary me-3" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}%{{ key }}={{ value }}{% endif %}{% endfor %}">처음으로</a>
+            <nav class="my-2 me-3" aria-label="Page navigation" style="height:35px;">
+                {% bootstrap_pagination page_obj extra=request.GET.urlencode %}
+            </nav>
+            <span class="me-3">총 페이지 수: {{ page_obj.paginator.num_pages }}</span>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_dvmt_js %}
+<!-- JavaScript for Filtering -->
+<script>
+    // helper function to updateURL parameters
+    function updateUrlParameter(param, value) {
+        const urlParams = new URLSearchParams(window.location.search);
+        value
+            ? urlParams.set(param, value)
+            : urlParams.delete(param);
+        urlParams.delete('page'); //reset Pagination
+        window.location.search = urlParams.toString();
+    }
+    
+    // Material type fileter
+    document.querySelectorAll('.mat-type-filter').forEach(function(button) {
+        button.addEventListener('click', function() {
+            let type = this.getAttribute('data-type');
+            let urlParams = new URLSearchParams(window.location.search);
+            let currentFilter = urlParams.get('mat_type') || '';
+            let filterList = currentFilter.split(',').filter(Boolean);
+
+            if (filterList.includes(type)) {
+                filterList = filterList.filter(t => t !== type);
+                this.classList.remove('active');
+            } else {
+                filterList.push(equip);
+                this.classList.add('active');
+            }
+            
+            if (filterList.length > 0) {
+                urlParams.set('mat_type', filterList.join(','));
+            } else {
+                urlParams.delete('mat_type');
+            }
+
+            urlParams.delete('page');  // 페이지 리셋
+            window.location.search = urlParams.toString();
+        });
+    });
+    
+    // ms_equip filter
+    document.querySelectorAll('.filter-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            let equip = this.getAttribute('data-equip').toLowerCase();
+            let urlParams = new URLSearchParams(window.location.search);
+            let currentFilter = urlParams.get('ms_equip') || '';
+            let filterList = currentFilter.split(',').filter(Boolean);
+
+            if (filterList.includes(equip)) {
+                filterList = filterList.filter(e => e !== equip);
+                this.classList.remove('active');
+            } else {
+                filterList.push(equip);
+                this.classList.add('active');
+            }
+
+            if (filterList.length > 0) {
+                urlParams.set('ms_equip', filterList.join(','));
+            } else {
+                urlParams.delete('ms_equip');
+            }
+
+            urlParams.delete('page');  // 페이지 리셋
+            window.location.search = urlParams.toString();
+        });
+    });
+    
+    // pd_equip filter (Dropdown)
+    document.querySelector('select[name="pd_equip"]').addEventListener('change', function () {
+        let selectedEquip = this.value;
+        updateUrlParameter('pd_equip', selectedEquip);
+    });
+    
+    function initializeCheckboxes() {
+        var selectAllCheckbox = document.getElementById('selectAll');
+        var checkboxes = document.querySelectorAll('.select-checkbox');
+
+
+        // 전체 선택 체크박스의 상태를 개별 체크박스에 반영
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('click', function () {
+                checkboxes.forEach(function (checkbox) {
+                    checkbox.checked = selectAllCheckbox.checked;
+                });
+            })
+            // 개별 체크박스 클릭 시, 전체 선택 체크박스 상태 업데이트
+            checkboxes.forEach(function (checkbox) {
+                checkbox.addEventListener('click', function() {
+                    if (!this.checked) {
+                        selectAllCheckbox.checked = false;
+                    } else {
+                        var allChecked = Array.from(checkboxes).every(function (cb) {
+                            return cb.checked;
+                        });
+                        selectAllCheckbox.checked = allChecked;
+                    }
+                });
+            });
+        }
+    };
+    
+    // DOM이 완전히 로드된 후 체크박스 초기화
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeCheckboxes();
+    });
+    
+    document.body.addEventListener('htmx:afterSwap', function (evt) {
+        initializeCheckboxes();
+    });
+    
+    document.getElementById('compareButton').addEventListener('click', function() {
+        // #measlist-table 테이블 내에서 체크된 체크박스들을 선택
+        const checkboxes = document.querySelectorAll('#measlist-table input[type="checkbox"]:checked');
+    
+        // 체크된 체크박스 값들을 배열로 추출하고, 빈 값과 "on" 값 제거
+        const ids = Array.from(checkboxes)
+            .map(checkbox => checkbox.value)
+            .filter(value => value !== "" && value !== "on"); // 빈 값과 "on" 필터링
+    
+        // 추출된 ids 값 확인을 위한 콘솔 로그 (디버깅용)
+        console.log('Extracted ids:', ids);
+    
+        // ids 배열이 비어있지 않은 경우만 URL로 이동
+        if (ids.length > 0) {
+            // ids 배열을 콤마로 연결하여 URL에 추가
+            const url = "{% url 'dvmt:meas_compare' %}?ids=" + ids.join(',');
+            console.log('Redirecting to:', url);  // 이동할 URL을 출력 (디버깅용)
+            location.href = url;
+        } else {
+            alert('Please select at least one material.');
+        }
+    });
+    
+</script>
+
+{% endblock %}

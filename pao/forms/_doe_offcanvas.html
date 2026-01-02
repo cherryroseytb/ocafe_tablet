@@ -1,0 +1,46 @@
+<div class="offcanvas offcanvas-end"
+	tabindex="-1"
+	id="offcanvasExample"
+	aria-labelledby="offcanvasExampleLabel">
+	
+	<div class="offcanvas-header d-flex flex-column alignitems-start">
+		<button
+			type="button"
+			class="btn-close text-reset float-end"
+			data-bs-dismiss="offcanvas"
+			aria-label="Close">
+		</button>
+		<h5 class="offcanvas-title w-100" id="offcanvasExampleLabel">
+			분석 프로필 #{{ profile.id }}-{{ profile.title }}
+		</h5>
+		<p class="mb-2 w-100">
+			Summary: {{ profile.summary }}
+		</p>
+		<small class="text-muted w-100 mb-3">
+			생성일: {{ profile.created_at }}
+		</small>
+	</div>
+	<div class="offcanvas-body d-flex flex-column" syle="height: 100%;">
+		<p class="text-primary">총 DOE 수: <strong id-"doeCount">0</strong></p>
+		<div class="table-responsive" 
+			style="flex-grow: 1; overflow-y: auto;">
+			<table class="table table-bordered table-sm table-hover">
+				<thead class="table-light">
+					<tr>
+						<th>삭제</th>
+						<th>DOE ID</th>
+						<th>DOE 정보</th>
+					</tr>
+				</thead>
+				<tbody id="deviceTableBody" class="align-moddle">
+					<!-- JS에서 동적으로 데이터 삽입 -->
+				</tbody>
+			</table>
+		</div>
+		<div class="d-grid gap-2 mt-auto pt-3">
+			<button class="btn btn-success" id="saveSelectedBtn">저장</button>
+			<a href="{% url 'pao:device_list' %}?profile_id={{ profile.id }}" 
+				class="btn btn-outline-secondary">device_list 페이지로 이동</a>
+		</div>
+	</div>
+</div>

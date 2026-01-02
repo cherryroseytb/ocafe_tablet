@@ -1,0 +1,95 @@
+{% block content %}
+//tv탭을 만들면서 추가한 csrf_token 코드
+{% csrf_token %}
+<input type="hidden" name="product_type" id="product_type_input">
+
+<div>
+    <ul>
+        <li>
+            <button class="nav-link active" id="po-tab" data-bs-toggle="tab" data-bs-target="#po-upload" role="tab" aria-controls="po-upload" aria-selected="true">
+                PO
+            </button>
+        </li>
+        <li>
+            <button class="nav-link active" id="tv-tab" data-bs-toggle="tab" data-bs-target="#tv-upload" role="tab" aria-controls="po-upload" aria-selected="true">
+                TV
+            </button>
+        </li>
+    </ul>
+</div>
+
+<input type="hidden" id="tv-upload-doe-url" value="{% url 'pao:upload_doe' %}" />
+<input type="hidden" id="tv-upload-ivl-url" value="{% url 'pao:upload_ivl' %}" />
+//기존코드에 있던 csrf_token 코드
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}" /> 
+
+{% endblock %} {% block extra_js %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const filesToUpload = {
+            tv_doe: [],
+            tv_ivl: [],
+        };
+        
+        const config = {
+            tv_doe: {
+                dropArea: documnet.getElementById("tv-dropDropArea"),
+                uploadUrl: document.getElementById("tv-upload-doe-url").value,
+            },
+            tv_ivl: {
+                dropArea: documnet.getElementById("tv-dropDropArea"),
+                uploadUrl: document.getElementById("tv-upload-ivl-url").value,
+            }
+        };
+        
+        const csrfToken = document.getElementById("csrf-token").value;
+        
+        const productInput = document.getElementById('product_type_input');
+        if (productInput) {
+            function setProductType(value) {
+                productInput.value = value;
+            }
+        
+            setProductType('po');
+            
+            document.getElementById('po-tab')?.addEventListener('shown.bs.tab', function() {
+                setProductType('po');
+                console.log("PO클릭됨, 현재값:", productInput.value)
+            });
+            document.getElementById('tv-tab')?.addEventListener('shown.bs.tab', function() {
+                setProductType('tv');
+                console.log("TV클릭됨, 현재값:", productInput.value)
+            });
+        }
+        
+        function setupFileHandler(type) {
+            ...
+            ...
+            uploadBtn.addEventListener("click", () => {
+                ...
+                const formData = new FormData();
+                const productTypeInput = document.getElementById("product_type_input");
+                const productTypeValue = productTypeInput ? productTypeInput.value : "";
+                if (productTypeValue) {
+                    formData.append("product_type", productTypeValue);
+                ...
+                fetch(uploadUrl, {
+                    method: "POST",
+                    body: formData,
+                    headers: {
+                        "X-CSRFToken": csrfToken,
+                    },
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        fileToUpload[type].forEach((file, index) => {
+                            ...
+                        });
+                    });
+                };
+            });
+        };
+    });
+</script>
+{% endblock %}
