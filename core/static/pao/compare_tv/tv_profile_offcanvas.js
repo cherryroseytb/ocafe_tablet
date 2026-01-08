@@ -229,19 +229,20 @@ function initializeDoeList() {
     }
     
     // IDs에 해당하는 DOE만 필터링
-    const filteredDoes = selectedDoes.filter(doe => doeIds.includes(doe.id));
-    
+    let currentDoeList = selectedDoes.filter(doe => doeIds.includes(doe.id));
+
     // 테이블 업데이트
-    updateDoeListTable(filteredDoes);
-    
+    updateDoeListTable(currentDoeList);
+
     // 삭제 버튼 이벤트 연결
     const tableBody = document.getElementById("deviceTableBody");
     if (tableBody) {
         tableBody.addEventListener("click", (e) => {
-            const updatedList = handleDeleteButtonClick(e, filteredDoes);
-            if (updatedList !== filteredDoes) {
+            const updatedList = handleDeleteButtonClick(e, currentDoeList);
+            if (updatedList.length !== currentDoeList.length) {
+                currentDoeList = updatedList;
                 // 리스트가 변경되면 테이블 다시 렌더링
-                updateDoeListTable(updatedList);
+                updateDoeListTable(currentDoeList);
             }
         });
     }

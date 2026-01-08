@@ -1,0 +1,10 @@
+.structure-td {
+  font-size: 0.85rem;
+  max-width: 150 px;
+  text-align: center;
+  /* white-space: pre-line; */
+}
+.structure-tr {
+  border-bottom: 3px black;
+  text-align: center;
+}

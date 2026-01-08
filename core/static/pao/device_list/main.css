@@ -1,0 +1,14 @@
+.choices__input {
+  width: 80%;
+}
+.choices {
+  width: 80%;
+}
+input[type="checkbox"] {
+  width: 17px; /* 너비 설정 */
+  height: 17px; /* 높이 설정 */
+}
+#exactExpDateInput {
+  width: 100%;
+  box-sizing: border-box;
+}

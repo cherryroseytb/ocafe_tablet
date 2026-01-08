@@ -17,31 +17,106 @@ export class GlobalState {
 
         // 테이블 인스턴스
         this.ivlTableInstance = null;
-        this.ivlColorTableInstance = null;
-        this.angleTableInstance = null;
-        this.ltTableInstance = null;
-
-        // 테이블 상태
-        this.selectedColumns = new Set();
-        this.referenceColumns = new Set();
         this.hiddenColumns = new Set();
         this.hiddenRows = new Set();
+        this.selectedColumns = new Set();
+        this.referenceColumns = new Set();
         this.columnOrder = [];
+        this.isDragging = false;
 
-        // 필터 상태
+        // 그래프 관련
         this.prevColorFilter = "";
         this.prevLineFactor = "";
+        this.gamutGraphData = null;
+        this.gamutAnalysisWindow = null;
+        this.currentFilters = { colorFilter: "", lineFactor: ""};        
+        this.selectedAngles = ["all"];
+        
+        this.angularSelectedAngles = ['0'];      // Angular Spectrum (기본 차트): 0도만 체크
+        this.doeIdToTpidMap = {};
 
         // 차트 설정
-        this.chartConfigs = [];
-
-        // 차트 필터 상태
-        this.angularSelectedAngles = ['0'];      // Angular Spectrum (기본 차트): 0도만 체크
-
-        // Gamut 분석
-        this.gamutAnalysisWindow = null;
-        this.gamutGraphData = null;
-
-        GlobalState.instance = this;
+        this.chartConfigs = [
+	        {
+	            id: "tv-jv-chart",
+	            title: "TV J-V Chart",
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        },
+	        {
+	            id: "tv-cj-chart",
+	            title: "TV CJ Chart", 
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        },
+	        {
+	            id: "tv-spectrum-chart",
+	            title: "TV Spectrum Chart",
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        },
+	        {
+	            id: "tv-wxy-chart",
+	            title: "TV Wxy Chart",
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        },
+	        {
+	            id: "tv-angular-spectrum-chart",
+	            title: "TV Angular Spectrum Chart",
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        },
+	        {
+	            id: "tv-delta-uv-angle-chart",
+	            title: "TV Delta UV Angle Chart",
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        },
+	        {
+	            id: "tv-lt-chart",
+	            title: "TV LT Chart",
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        },
+	        {
+	            id: "tv-delta-v-chart",
+	            title: "TV Delta V Chart",
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        },
+	        {
+	            id: "tv-color-coordinate-chart",
+	            title: "TV Color Coordinate Chart",
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        },
+	        {
+	            id: "tv-delta-u-delta-v-chart",
+	            title: "TV Delta U Delta V Chart",
+	            data: {
+					data: [],
+					layout: {}
+	            },
+	        }
+	    ];
     }
 }

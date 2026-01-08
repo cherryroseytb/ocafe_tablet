@@ -1,0 +1,47 @@
+{% load custom_filters %}
+<div class="table-responsive col">
+    <div class="d-flex d-flex-row justify-content-evenly my-2">
+        <h5>{{ doe.id }}:{{ doe.exp_date }} {{ doe.color }}_{{ doe.runsheet_lot }}_{{ doe.gls_id }}</h5>
+        <button type="button"
+                class="btn-close"
+                aria-label="Close"
+                onclick="deleteTable(event)"></button>
+    </div>
+    <table id="structure_{{ doe.id }}" class="table table-sm table-hover">
+        <thead class="table-light">
+            <tr class="structure-tr">
+                {% for header in doe.structure_data.headers %}<th scope="col">{{ header }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if doe.structure_data.rows %}
+                {% for row in doe.structure_data.rows %}
+                    {% if 'eml' in row|get_item:'Layer'|stringformat:"s"|lower %}
+                        <tr class='table-warning'>
+                        {% else %}
+                            <tr>
+                            {% endif %}
+                            {% for key, value in row.items %}
+                                <td class="structure-td">
+                                    {% for v in value %}
+                                        {% if 'Material' in key %}
+                                            <a href="{% url "dvmt:meas_list" %}?q={{ v|split_and_first }}">{{ v }}</a>
+                                            <br>
+                                        {% else %}
+                                            {{ v }}
+                                            <br>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td class="structure-td"
+                            coldspan="{{ doe.structure_data.headers|length }}">No data available</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>

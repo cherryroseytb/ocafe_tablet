@@ -1,0 +1,33 @@
+table {
+  table-layout: auto;
+}
+
+.table-responsive {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: auto;
+  width: 100%;
+}
+
+td {
+  white-space: normal;
+  word-break: break-word;
+  vertical-align: top;
+}
+
+.border {
+  border-style: dashed !important;
+  min-height: 200px;
+  cursor: pointer;
+}
+thead tr th {
+  width: 70%;
+}
+
+thead tr th:nth-child(2) {
+  width: 20%;
+}
+
+thead tr th:nth-child(3) {
+  width: 10%;
+}

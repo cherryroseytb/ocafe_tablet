@@ -8,12 +8,13 @@ import { ChartManager } from './ChartManager.js';
 import { AnalysisManager } from './AnalysisManager.js';
 import { StateManager } from './StateManager.js';
 import { ExportManager } from './ExportManager.js';
+import { DoesStructureComponent } from "../device_structure/device_structure.js";
 
 // ============================================
 // 전역 변수
 // ============================================
 
-let state;
+let state = GlobalState.getInstance();
 let tableManager;
 let dataLoader;
 let chartManager;
@@ -21,62 +22,129 @@ let analysisManager;
 let stateManager;
 let exportManager;
 
-// ============================================
-// TPID 매핑 함수들 (HTML onclick에서 사용)
-// ============================================
-
-let doeIdToTpidMap = {};
-let selectedDoes = [];
 
 /**
  * TPID 매핑 초기화
  */
 function initializeTpidMapping() {
-    doeIdToTpidMap = {};
-    selectedDoes.forEach(doe => {
-        const lot = String(doe.runsheet_lot || 0).padStart(2, '0');
-        const gls = String(doe.gls_id || 0).padStart(2, '0');
-        const tpid = lot + gls;
-        const sequence = doe.sequence;
-
-        doeIdToTpidMap[doe.id] = {
-            tpid: tpid,
-            sequence: sequence,
-            displayName: `${sequence}-${tpid}`,
-        };
-    });
+    state.doeIdToTpidMap = {};
+    
+    if (typeof selectedDoes !== 'undefined' && selectedDoes) {
+        selectedDoes.forEach(doe => {
+            const lot = String(doe.runsheet_lot || 0).padStart(2, '0');
+            const gls = String(doe.gls_id || 0).padStart(2, '0');
+            const tpid = lot + gls;
+            const sequence = doe.sequence;
+            
+            state.doeIdToTpidMap[doe.id] = {
+                tpid: tpid,
+                sequence: sequence,
+                displayName: `${sequence}-${tpid}`,
+            };
+        });
+        console.log("📋 TPID 매핑 초기화 완료:", state.doeIdToTpidMap);
+    }
 }
 
 /**
  * DOE ID를 TPID로 변환
+ * @param {string|number} doeIdOrString - "DOE-5" 또는 5 또는 "5" 또는 "DOE-5_45°"
+ * @returns {string} - TPID displayName 또는 원본 값
  */
 function convertDoeIdToTpid(doeIdOrString) {
     const str = String(doeIdOrString);
-
-    if (str.startsWith("DOE-")) {
-        const doeId = parseInt(str.replace("DOE-", ""));
-        if (doeIdToTpidMap[doeId]) {
-            return doeIdToTpidMap[doeId].displayName;
+    
+    // "DOE-123_45°" 형태 처리 (각도 정보)
+    const angleMatch = str.match(/(.+?)(_\d+°)$/);
+    if (angleMatch) {
+        const doePartMatch = angleMatch[1].match(/\d+/);
+        if (doePartMatch) {
+            const mapping = state.doeIdToTpidMap[parseInt(doePartMatch[0])];
+            if (mapping) {
+                return mapping.displayName + angleMatch[2];
+            }
         }
         return str;
     }
-
-    const doeId = parseInt(str);
-    if (!isNaN(doeId) && doeIdToTpidMap[doeId]) {
-        return doeIdToTpidMap[doeId].displayName;
+    
+    // "DOE-123_White_x" 형태 처리 (색상 + x/y)
+    const colorXYMatch = str.match(/(.+?)_(White|Red|Green|Blue)_(x|y)$/i);
+    if (colorXYMatch) {
+        const doePartMatch = colorXYMatch[1].match(/\d+/);
+        if (doePartMatch) {
+            const mapping = state.doeIdToTpidMap[parseInt(doePartMatch[0])];
+            if (mapping) {
+                return mapping.displayName + '_' + colorXYMatch[2] + '_' + colorXYMatch[3];
+            }
+        }
+        return str;
     }
-
+    
+    // "DOE-123_white" 형태 처리 (색상만)
+    const colorMatch = str.match(/(.+?)_(White|Red|Green|Blue)$/i);
+    if (colorMatch) {
+        const doePartMatch = colorMatch[1].match(/\d+/);
+        if (doePartMatch) {
+            const mapping = state.doeIdToTpidMap[parseInt(doePartMatch[0])];
+            if (mapping) {
+                return mapping.displayName + '_' + colorMatch[2];
+            }
+        }
+        return str;
+    }
+    
+    // 숫자인 경우
+    if (typeof doeIdOrString === 'number') {
+        const mapping = state.doeIdToTpidMap[doeIdOrString];
+        return mapping ? mapping.displayName : str;
+    }
+    
+    // 일반 문자열
+    const match = str.match(/\d+/);
+    if (match) {
+        const mapping = state.doeIdToTpidMap[parseInt(match[0])];
+        return mapping ? mapping.displayName : str;
+    }
+    
     return str;
 }
 
 /**
  * Plotly traces의 이름을 TPID로 변환
+ * @param {Array} traces - Plotly traces 배열
+ * @returns {Array} - 변환된 traces
  */
 function convertTracesToTpid(traces) {
-    return traces.map(trace => ({
-        ...trace,
-        name: convertDoeIdToTpid(trace.name)
-    }));
+    if (!Array.isArray(traces)) return traces;
+    
+    return traces.map(trace => {
+        if (trace.name) {
+            trace.name = convertDoeIdToTpid(trace.name);
+        }
+        return trace;
+    });
+}
+
+/**
+ * 그래프 필터 UI 업데이트 (원본 line 1524-1535)
+ */
+function updateGraphFilters() {
+    const color = document.getElementById("tvColorFilter")?.value || "";
+    const line = document.getElementById("tvLineFactor")?.value || "";
+    
+    const colorFilterElem = document.getElementById('currentGraphColorFilter');
+    const lineFactorElem = document.getElementById('currentGraphLineFactor');
+    
+    if (colorFilterElem) colorFilterElem.textContent = color || "선택안됨";
+    if (lineFactorElem) lineFactorElem.textContent = line || "선택안됨";
+    
+    state.currentFilters.colorFilter = color;
+    state.currentFilters.lineFactor = line;
+    
+    // validateForm 호출 (chartManager가 있으면)
+    if (chartManager) {
+        chartManager.validateForm();
+    }
 }
 
 /**
@@ -102,6 +170,7 @@ function openBaselineEditor() {
         });
     }
 }
+
 
 // ============================================
 // 그래프 생성 버튼
@@ -196,8 +265,28 @@ document.getElementById('generateChartsBtn')?.addEventListener('click', async fu
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("📊 Compare TV 페이지 초기화 시작");
 
-    // 1. 전역 상태 초기화
-    state = GlobalState.getInstance();
+    new Choices("#doeSelect", {
+        allowHTML: true,
+    });
+
+    const getStructureBtn = document.getElementById("getStructureBtn");
+    getStructureBtn.addEventListener("click", () => {
+        const selectedDoe = document.getElementById("doeSelect");
+        const structureUrl = URLS.structure.replace(0, selectedDoe.value);
+        const structureArea = document.getElementById('structureArea');
+        new DoesStructureComponent(
+            structureArea,
+            structureUrl,
+            URLS.drip,
+            ["Order", "EV_Chamber", "Cell_No"],
+            true,
+            selectedDoe[selectedDoe.selectedIndex].text,
+            true,
+            true,
+        );
+    });
+
+
 
     // 2. TPID 매핑 초기화
     if (typeof does !== 'undefined') {
@@ -209,11 +298,74 @@ document.addEventListener('DOMContentLoaded', async () => {
     tableManager = new TableManager();
     analysisManager = new AnalysisManager(tableManager);
     chartManager = new ChartManager(tableManager, analysisManager);
-    dataLoader = new DataLoader(tableManager, chartManager, null);
+    dataLoader = new DataLoader(tableManager, analysisManager, chartManager);
     stateManager = new StateManager(tableManager, chartManager, analysisManager);
     exportManager = new ExportManager(tableManager);
 
-    // 4. Color Filter 편집 버튼
+    tableManager.initializeTableState();
+    await tableManager.loadInitialTableData();
+
+    //  차트 레이아웃 초기화 (원본 line 1963-1981)
+    if (typeof initialLayouts !== 'undefined' && initialLayouts) {
+        console.log("📊 차트 레이아웃 초기화 시작...");
+        console.log("📋 initialLayouts:", Object.keys(initialLayouts));
+        console.log("📋 chartConfigs:", state.chartConfigs.map(c => c.id));
+        
+        // chartConfigs에 layout 설정
+        state.chartConfigs.forEach(config => {
+            if (initialLayouts[config.id]) {
+                config.data.layout = initialLayouts[config.id];
+                console.log(`  ✅ ${config.id} layout 설정 완료`);
+            } else {
+                console.log(`  ⚠️ ${config.id} layout 없음`);
+            }
+        });
+        
+        // ChartShowcaseManager가 있으면 호출 (외부 차트 스크립트에서 제공)
+        if (window.ChartShowcaseManager) {
+            console.log("📊 ChartShowcaseManager 발견, createAllCharts() 호출...");
+            window.ChartShowcaseManager.createAllCharts();
+            console.log("✅ ChartShowcaseManager.createAllCharts() 완료");
+        } else {
+            console.warn("⚠️ ChartShowcaseManager를 찾을 수 없습니다.");
+            
+            // ChartShowcaseManager가 없으면 수동으로 빈 차트 생성
+            state.chartConfigs.forEach(config => {
+                const chartDiv = document.getElementById(config.id);
+                if (chartDiv) {
+                    try {
+                        // 빈 차트로 초기화 (나중에 데이터 추가 가능하도록)
+                        Plotly.newPlot(
+                            config.id,
+                            [],  // 빈 데이터
+                            config.data.layout || {},
+                            { responsive: true }
+                        );
+                        console.log(`  ✅ ${config.id} 수동 초기화 완료`);
+                    } catch (err) {
+                        console.error(`  ❌ ${config.id} 초기화 실패:`, err);
+                    }
+                }
+            });
+        }
+    } else {
+        console.warn("⚠️ initialLayouts가 정의되지 않았습니다.");
+    }
+
+    const colorFilterVal = document.getElementById("tvColorFilter").value;
+    const lineFactorVal = document.getElementById("tvLineFactor").value;
+    
+    if (colorFilterVal && lineFactorVal) {
+        await dataLoader.loadAllAdditionalTablesAsync();
+    }
+    
+    // 8. UI 컴포넌트 초기화
+    tableManager.initializeColumnVisibilityDropdown();
+    tableManager.initializeRowVisibilityDropdown();
+    
+    //  이벤트 리스너 등록
+
+    //  Color Filter 편집 버튼
     document.getElementById("colorOpenEditorBtn")?.addEventListener("click", () =>
         Utils.openEditor(URLS.colorfilterEditor, 'colorFilter', () => {
             if (chartManager) {
@@ -279,18 +431,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 12. 컬럼/행 visibility 드롭다운 이벤트
-    document.getElementById('columnVisibilityDropdown')?.addEventListener('shown.bs.dropdown', () => {
-        if (tableManager) {
-            tableManager.updateColumnVisibilityList();
-        }
-    });
-
-    document.getElementById('rowVisibilityDropdown')?.addEventListener('shown.bs.dropdown', () => {
-        if (tableManager) {
-            tableManager.updateRowVisibilityList();
-        }
-    });
 
     // 13. 초기 Gamut 버튼 상태 설정
     if (chartManager) {
@@ -300,6 +440,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log("✅ Compare TV 페이지 초기화 완료");
 });
 
+window.addEventListener("beforeunload", function () {
+    if (state.gamutAnalysisWindow && !state.gamutAnalysisWindow.closed) {
+        state.gamutAnalysisWindow.close();
+    }
+})
+
 // ============================================
 // 전역 함수 노출 (HTML onclick에서 사용)
 // ============================================
@@ -307,6 +453,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 window.initializeTpidMapping = initializeTpidMapping;
 window.convertDoeIdToTpid = convertDoeIdToTpid;
 window.convertTracesToTpid = convertTracesToTpid;
+window.updateGraphFilters = updateGraphFilters;
 window.toggleSelectAllColumns = toggleSelectAllColumns;
 window.openBaselineEditor = openBaselineEditor;
 

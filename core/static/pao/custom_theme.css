@@ -1,0 +1,95 @@
+/* static/css/custom_theme.css */
+:root {
+  --bs-primary: #01744d;
+  --bs-primary-rgb: 1, 116, 77; /* RGB values corresponding to #01744D */
+
+  /* Define a related darker shade for hover/active states */
+  --bs-primary-dark: #015c3e; /* Adjust as needed */
+
+  /* Apply primary color to links */
+  --bs-link-color: var(--bs-primary);
+  --bs-link-hover-color: var(
+    --bs-primary-dark
+  ); /* Use the darker shade for hover */
+
+  /* Override button colors derived from primary */
+  --bs-btn-color: #fff; /* Text color on primary button */
+  --bs-btn-bg: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--bs-primary-dark);
+  --bs-btn-hover-border-color: var(--bs-primary-dark);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--bs-primary-dark);
+  --bs-btn-active-border-color: #014f34; /* Even darker for active? Adjust */
+  --bs-btn-focus-shadow-rgb: var(
+    --bs-primary-rgb
+  ); /* Use primary RGB for focus ring */
+}
+
+/* Ensure overrides apply correctly to elements like buttons */
+.btn-primary {
+  --bs-btn-color: #fff; /* Text color on primary button - usually white */
+  --bs-btn-bg: var(--bs-primary);
+  --bs-btn-border-color: var(--bs-primary);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--bs-primary-dark);
+  --bs-btn-hover-border-color: var(--bs-primary-dark);
+  --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--bs-primary-dark); /* Or even darker active shade */
+  --bs-btn-active-border-color: #014f34; /* Match active bg */
+  /* Add disabled styles if needed */
+}
+
+.btn-outline-primary {
+  border-color: var(--bs-primary);
+  color: var(--bs-primary);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--bs-primary);
+  color: #fff;
+}
+
+.btn {
+  height: fit-content;
+}
+
+/* Tabulator Table */
+
+.tabulator {
+  border-radius: 6px;
+  background-color: #f8f9fa;
+}
+.tabulator
+  .tabulator-tableholder
+  .tabulator-placeholder
+  .tabulator-placeholder-contents {
+  color: hsl(208, 7%, 60%);
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.tabulator-row.tabulator-selected {
+  background-color: rgba(var(--bs-primary-rgb), 0.25);
+  font-weight: 600;
+}
+
+.tabulator-row .tabulator-cell.tabulator-editing {
+  border-color: var(--bs-primary);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tabulator-row:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .tabulator-row.tabulator-selected:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.5);
+  }
+
+  .tabulator-cell.tabulator-editable:hover {
+    cursor: pointer;
+  }
+}

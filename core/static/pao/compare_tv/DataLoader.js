@@ -4,41 +4,48 @@ import { GlobalState } from './GlobalState.js';
 import { Utils } from './Utils.js';
 
 export class DataLoader {
-    constructor(tableManager, chartManager, stateManager) {
+    constructor(tableManager, analysisManager, chartManager) {
         this.state = GlobalState.getInstance();
         this.tableManager = tableManager;
+        this.analysisManager = analysisManager;
         this.chartManager = chartManager;
-        this.stateManager = stateManager;
+    }
+
+    _getFormValues() {
+        return {
+            ids: new URLSearchParams(window.location.search).get("ids") || "",
+            color: document.getElementById('tvColorFilter').value || "",
+            line: document.getElementById('tvLineFactor').value || "",
+            agingTime: document.getElementById('ltAgingTime').value || 30,
+        };
     }
 
     /**
      * 모든 추가 테이블 비동기 로드
      */
     async loadAllAdditionalTablesAsync() {
-        const colorFilter = document.getElementById('tvColorFilter').value;
-        const lineFactor = document.getElementById('tvLineFactor').value;
-        const agingTime = document.getElementById('ltAgingTime').value || 30;
+        const { ids, color, line } = this._getFormValues();
 
-        if (!colorFilter || !lineFactor) {
+        if (!color || !line) {
             console.warn("Color Filter 또는 Line Factor가 선택되지 않았습니다.");
             return;
         }
 
         // 이전 값과 동일하면 스킵
-        if (colorFilter === this.state.prevColorFilter &&
-            lineFactor === this.state.prevLineFactor) {
+        if (color === this.state.prevColorFilter &&
+            line === this.state.prevLineFactor) {
             return;
         }
 
-        this.state.prevColorFilter = colorFilter;
-        this.state.prevLineFactor = lineFactor;
+        this.state.prevColorFilter = color;
+        this.state.prevLineFactor = line;
 
         try {
             const ids = new URLSearchParams(window.location.search).get("ids") || "";
 
             // IVL Color 테이블
             const ivlColorResponse = await fetch(
-                `${URLS.ivlColorTable}?ids=${ids}&color_filter=${colorFilter}&line_factor=${lineFactor}`
+                `${URLS.ivlColorTable}?ids=${ids}&color_filter=${color}&line_factor=${line}`
             );
             const ivlColorData = await ivlColorResponse.json();
             if (ivlColorData.success && this.state.ivlColorTableInstance) {
@@ -47,7 +54,7 @@ export class DataLoader {
 
             // Angle 테이블
             const angleResponse = await fetch(
-                `${URLS.angleTable}?ids=${ids}&color_filter=${colorFilter}&line_factor=${lineFactor}`
+                `${URLS.angleTable}?ids=${ids}&color_filter=${color}&line_factor=${line}`
             );
             const angleData = await angleResponse.json();
             if (angleData.success && this.state.angleTableInstance) {
@@ -56,7 +63,7 @@ export class DataLoader {
 
             // LT 테이블
             const ltResponse = await fetch(
-                `${URLS.ltTable}?ids=${ids}&color_filter=${colorFilter}&line_factor=${lineFactor}&aging_time=${agingTime}`
+                `${URLS.ltTable}?ids=${ids}&color_filter=${color}&line_factor=${line}&aging_time=${agingTime}`
             );
             const ltData = await ltResponse.json();
             if (ltData.success && this.state.ltTableInstance) {
