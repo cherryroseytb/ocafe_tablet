@@ -2618,10 +2618,42 @@ document.getElementById('generateChartsBtn').addEventListener('click', async fun
 });
 
 
-
+import { DoeStructureComponent } from "../device_structure/device_structure.js";
 
 
 document.addEventListener("DOMContentLoaded", async () => {
+
+    new Choices("#doeSelect", {
+        allowHTML: true,
+    });
+
+    const getStructureBtn = document.getElementById("getStructureBtn");
+    getStructureBtn.addEventListener("click", () => {
+        const selectedDoe = document.getElementById("doeSelect");
+        const structureUrl = URLS.structure.replace(0, selectedDoe.value);
+        const structureArea = document.getElementById("structureArea");
+        new DoeStructureComponent(
+            structureArea,
+            structureUrl,
+            URLS.drip,
+            ["Order", "EC_Chamber", "Cell_No"],
+            true,
+            selectedDoes[selectedDoe.selectedIndex].text,
+            true,
+            true,
+        );
+    });
+
+    tableManager = new TableManager();
+    exportManager = new exportManager(tableManager);
+
+    const exportBtn = document.getElementById('exportExcelBtn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            exportManager.exportSelectedData();
+        });
+    }
+
     // 1. 기초 매핑 및 데이터 준비
     initializeTpidMapping();
     
@@ -2655,8 +2687,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (restored) handleDoeChanges();
 
     // 8. 이벤트 리스너 등록
-    const exportBtn = document.getElementById('exportExcelBtn');
-    if (exportBtn) exportBtn.addEventListener('click', exportSelectedData);
+    
     
     document.getElementById("colorOpenEditorBtn")?.addEventListener("click", () => openEditor(URLS.colorfilterEditor, 'colorFilter'));
 	document.getElementById("lineOpenEditorBtn")?.addEventListener("click", () => openEditor(URLS.linefactorEditor, 'lineFactor'));

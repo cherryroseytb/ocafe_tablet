@@ -4,7 +4,9 @@
 
 {% block extra_css %}
 	<title>Compare TV</title>
-	<link href="{% static 'vendor/tabulator/css/tabulator.min.css' %}" rel="stylesheet">
+	<link rel="stylesheet" href="{% static 'vendor/tabulator/css/tabulator.min.css' %}">
+	<link rel="stylesheet" href="{% static 'vendor/choices/coices.min.css' %}">
+	<link rel="stylesheet" href="{% static 'pao/device_structure/device_structure.css' %}">
 	<style>
 	body {
 		overscroll-behavior-y: contain;
@@ -89,35 +91,23 @@
 		tabindex="0">{% include "pao/_doe_offcanvas.html" with profile=profile %}</div>
 		
 	<h3 id="deviceStructure">Device Structure</h3>
-	<div class="container m-2">
-		<div class="row">
-			<div class="col-md-6">
-				<select id="doeSelect1" class="form-select" aria-label="Select DOE">
-					<option disabled seleted>---</option>
+	<div class="container m-2 border rounded col-12">
+		<div class="row my-2">
+			<p class="text-muted">원하는 DOE의 소자 구조를 추가하여 비교하세요. <span class="text-muted">기준</span> 설정시 기준 소자와 다른 소자의 구조를 비교합니다.</p>
+			<div class="col-8">
+				<select id="doeSelect1" class="form-select" data-placeholder="소자를 선택하세요.">
 					{% for doe in selected_does %}
-						<option value="{{ doe.id }}">
-							{{ doe.id }} : {{ doe.exp_date|date:"ymd" }}_{{ doe.color }}_{{ doe.runsheet_lot }}_{{doe.gls_id }}
-						</option>
+					<option value="{{ doe.id }}">
+						{{ doe.sequence }}차 {{ doe.color }}_{{ doe.runsheet_lot }}_{{doe.gls_id }}
+					</option>
 					{% endfor %}
 				</select>
-				<div id="doeContent1">
-					<!-- 이부분은 htmx 요청에 의해 대체 될 것입니다 -->
-				</div>
 			</div>
-			<div class="col-md-6">
-				<select id="doeSelect2" class="form-select" aria-label="Select DOE">
-					<option disabled selected>---</option>
-					{% for doe in selected_does %}
-						<option value="{{ doe.id }}">
-							{{ doe.id }} : {{ doe.exp_date|date:"ymd" }}_{{ doe.color }}_{{ doe.runsheet_lot }}_{{doe.gls_id }}
-						</option>
-					{% endfor %}
-				</select>
-				<div id="doeContent2">
-					<!-- 이부분은 htmx 요청에 의해 대체 될 것입니다 -->
-				</div>
+			<div class="col-auto">
+				<button id="getStructureBtn" class="btn btn-primary my-1">구조 추가</button>
 			</div>
 		</div>
+		<div class="row w-100" id="structureArea"></div>
 	</div>
 	<hr>
 	<div class="d-flex justify-content-between align-items-center mb-3">
@@ -215,7 +205,7 @@
 			    {% endfor %}
 			</select>
 	    </div>
-	    <button class="btn btn-outline-secondary btn-sm" onclick="openEditor('color')">편집</button>
+	    <button class="btn btn-outline-secondary btn-sm" id="colorOpenEditorBtn">편집</button>
 	
 	    <label for="tvLineFactor">Line Factor:</label>
 	    <div>
@@ -556,6 +546,7 @@
 {% block extra_js %}
 <script src="{% static 'vendor/plotly/plotly-3.2.0.min.js' %}"></script>
 <script src="{% static 'vendor/flatted/flatted-3.3.3.min.js' %}"></script>
+<script src="{% static 'vendor/choices/choices.min.js' %}"></script>
 <script src="{% static 'vendor/xlsx/0.20.3/xlsx.full.min.js' %}"></script>
 <script type="text/javascript" src="{% static 'vendor/tabulator/js/tabulator.min.js' %}"></script>
 <script type="module" src="{% static 'pao/components/chart-editor.es.js' %}"></script>
@@ -580,7 +571,7 @@
 	const csrfToken = getCookie('csrftoken');
 </script>
 <script>
-	function getStructure(doeId, DOMId){
+	{% comment %} function getStructure(doeId, DOMId){
 		if (doeId !== "---"){
 			var target = document.getElementById(DOMId);
 			htmx.ajax('GET', "{% url 'pao:device_structure' 0 %}".replace('0', doeId), { 
@@ -743,7 +734,7 @@
 			// 다음 테이블 비교를 위해 matched 플래그 리셋
 			baseLayerList.forEach(layer => layer.matched = false);
 		}
-	}
+	} {% endcomment %}
 </script>
 
 
